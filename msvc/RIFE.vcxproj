@@ -72,12 +72,12 @@
     <LibraryPath>..\..\boost_1_79_0\bin\x86\lib;..\..\ncnn-20220729-windows-vs2022\x86\lib;C:\Users\asdq\Downloads\dep_libs\lib;..\..\Avisynth_3.7.3_20220419_test1\x86_xp\c_api;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>..\..\boost_1_79_0;..\..\ncnn\build\install\include;C:\VulkanSDK\1.3.216.0\Include;..\..\AviSynthPlus\avs_core\include;$(IncludePath)</IncludePath>
-    <LibraryPath>..\..\boost_1_79_0\bin\x64_debug\lib;..\..\ncnn\build\install\lib;C:\VulkanSDK\1.3.216.0\Lib;..\..\AviSynthPlus\build_x64\Output\c_api;$(LibraryPath)</LibraryPath>
+    <IncludePath>..\..\boost_1_80_0;..\..\ncnn\build\install\include;C:\VulkanSDK\1.3.224.1\Include;..\..\AviSynthPlus\avs_core\include;$(IncludePath)</IncludePath>
+    <LibraryPath>..\..\boost_1_80_0\bin\x64_debug\lib;..\..\ncnn\build\install\lib;C:\VulkanSDK\1.3.224.1\Lib;..\..\AviSynthPlus\build_x64\Output\c_api;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>..\..\boost_1_79_0;..\..\ncnn-20220729-windows-vs2022\x64\include;C:\VulkanSDK\1.3.216.0\Include;..\..\AviSynthPlus\avs_core\include;$(IncludePath)</IncludePath>
-    <LibraryPath>..\..\boost_1_79_0\bin\x64\lib;..\..\ncnn-20220729-windows-vs2022\x64\lib;C:\VulkanSDK\1.3.216.0\Lib;..\..\AviSynthPlus\build_x64\Output\c_api;$(LibraryPath)</LibraryPath>
+    <IncludePath>..\..\boost_1_80_0;..\..\ncnn-20220729-windows-vs2022\x64\include;C:\VulkanSDK\1.3.224.1\Include;..\..\AviSynthPlus\avs_core\include;$(IncludePath)</IncludePath>
+    <LibraryPath>..\..\boost_1_80_0\bin\x64\lib;..\..\ncnn-20220729-windows-vs2022\x64\lib;C:\VulkanSDK\1.3.224.1\Lib;..\..\AviSynthPlus\build_x64\Output\c_api;$(LibraryPath)</LibraryPath>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -145,7 +145,7 @@
     </Link>
     <Link>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
-      <AdditionalDependencies>libboost_filesystem-vc143-mt-x64-1_79.lib;ncnn.lib;vulkan-1.lib;AviSynth.lib;shaderc_combined.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libboost_filesystem-vc143-mt-x64-1_80.lib;ncnn.lib;vulkan-1.lib;AviSynth.lib;shaderc_combined.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
