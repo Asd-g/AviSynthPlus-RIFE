@@ -1,8 +1,8 @@
 #include <winver.h>
 
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION             1,0,0,0
-PRODUCTVERSION        	1,0,0,0
+FILEVERSION             1,0,1,0
+PRODUCTVERSION        	1,0,1,0
 FILEFLAGSMASK           VS_FFI_FILEFLAGSMASK
 FILEFLAGS               0x0L
 FILEOS                  VOS__WINDOWS32
@@ -15,11 +15,11 @@ BEGIN
         BEGIN
         VALUE "Comments",         "RIFE-ncnn-Vulkan filter."
         VALUE "FileDescription",  "RIFE for AviSynth+."
-        VALUE "FileVersion",      "1.0.0"
+        VALUE "FileVersion",      "1.0.1"
         VALUE "InternalName",     "RIFE"
         VALUE "OriginalFilename", "RIFE.dll"
         VALUE "ProductName",      "RIFE"
-        VALUE "ProductVersion",   "1.0.0"
+        VALUE "ProductVersion",   "1.0.1"
         END
     END
     BLOCK "VarFileInfo"
