@@ -144,6 +144,9 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
     auto remainder{ n * d->factorDen % d->factorNum };
 
     auto src0{ avs_get_frame(fi->child, frameNum) };
+    if (!src0)
+        return nullptr;
+
     AVS_VideoFrame* dst{ avs_new_video_frame_p(fi->env, &fi->vi, src0) };
 
     if (remainder != 0 && n < fi->vi.num_frames - d->factor)
