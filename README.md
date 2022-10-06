@@ -27,6 +27,7 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
 - model\
     Model to use.\
     `models` must be located in the same folder as RIFE.dll.\
+    Some of the models have two versions: speed oriented (ensemble=False / fast=True) and quality oriented (ensemble=True / fast=False).\
     0: rife\
     1: rife-HD\
     2: rife-UHD\
@@ -36,7 +37,23 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
     6: rife-v2.4\
     7: rife-v3.0\
     8: rife-v3.1\
-    9: rife-v4\
+    9: rife-v4 (ensemble=False / fast=True)\
+    10: rife-v4 (ensemble=True / fast=False)\
+    11: rife-v4.1 (ensemble=False / fast=True)\
+    12: rife-v4.1 (ensemble=True / fast=False)\
+    13: rife-v4.2 (ensemble=False / fast=True)\
+    14: rife-v4.2 (ensemble=True / fast=False)\
+    15: rife-v4.3 (ensemble=False / fast=True)\
+    16: rife-v4.3 (ensemble=True / fast=False)\
+    17: rife-v4.4 (ensemble=False / fast=True)\
+    18: rife-v4.4 (ensemble=True / fast=False)\
+    19: rife-v4.5 (ensemble=False)\
+    20: rife-v4.5 (ensemble=True)\
+    21: rife-v4.6 (ensemble=False)\
+    22: rife-v4.6 (ensemble=True)\
+    23: sudo_rife4 (ensemble=False / fast=True) (custom model)\
+    24: sudo_rife4 (ensemble=True / fast=False) (custom model)\
+    25: sudo_rife4 (ensemble=True / fast=True) (custom model)\
     Default: 5.
 
 - factor_num, factor_den\

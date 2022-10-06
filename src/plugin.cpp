@@ -422,8 +422,8 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
         d->skip = avs_defined(avs_array_elt(args, Skip)) ? avs_as_bool(avs_array_elt(args, Skip)) : 0;
         d->skipThreshold = avs_defined(avs_array_elt(args, Skip_threshold)) ? avs_as_float(avs_array_elt(args, Skip_threshold)) : 60.0;
 
-        if (model < 0 || model > 9)
-            throw "model must be between 0 and 9 (inclusive)";
+        if (model < 0 || model > 25)
+            throw "model must be between 0 and 25 (inclusive)";
         if (factorNum < 1)
             throw "factor_num must be at least 1";
         if (factorDen < 1)
@@ -506,7 +506,23 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
                 case 6: modelPath += "/rife-v2.4"; break;
                 case 7: modelPath += "/rife-v3.0"; break;
                 case 8: modelPath += "/rife-v3.1"; break;
-                case 9: modelPath += "/rife-v4"; break;
+                case 9: modelPath += "/rife-v4_ensembleFalse_fastTrue"; break;
+                case 10: modelPath += "/rife-v4_ensembleTrue_fastFalse"; break;
+                case 11: modelPath += "/rife-v4.1_ensembleFalse_fastTrue"; break;
+                case 12: modelPath += "/rife-v4.1_ensembleTrue_fastFalse"; break;
+                case 13: modelPath += "/rife-v4.2_ensembleFalse_fastTrue"; break;
+                case 14: modelPath += "/rife-v4.2_ensembleTrue_fastFalse"; break;
+                case 15: modelPath += "/rife-v4.3_ensembleFalse_fastTrue"; break;
+                case 16: modelPath += "/rife-v4.3_ensembleTrue_fastFalse"; break;
+                case 17: modelPath += "/rife-v4.4_ensembleFalse_fastTrue"; break;
+                case 18: modelPath += "/rife-v4.4_ensembleTrue_fastFalse"; break;
+                case 19: modelPath += "/rife-v4.5_ensembleFalse"; break;
+                case 20: modelPath += "/rife-v4.5_ensembleTrue"; break;
+                case 21: modelPath += "/rife-v4.6_ensembleFalse"; break;
+                case 22: modelPath += "/rife-v4.6_ensembleTrue"; break;
+                case 23: modelPath += "/sudo_rife4_ensembleFalse_fastTrue"; break;
+                case 24: modelPath += "/sudo_rife4_ensembleTrue_fastFalse"; break;
+                case 25: modelPath += "/sudo_rife4_ensembleTrue_fastTrue"; break;
             }
         }
 
@@ -523,6 +539,8 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
         else if (modelPath.find("rife-v3") != std::string::npos)
             rife_v2 = true;
         else if (modelPath.find("rife-v4") != std::string::npos)
+            rife_v4 = true;
+        else if (modelPath.find("rife4") != std::string::npos)
             rife_v4 = true;
         else if (modelPath.find("rife") == std::string::npos)
             throw "unknown model dir type";
