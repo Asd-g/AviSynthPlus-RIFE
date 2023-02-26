@@ -15,7 +15,7 @@ This is [a port of the VapourSynth plugin RIFE](https://github.com/HomeOfVapourS
 ### Usage:
 
 ```
-RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num", int "fps_den", string "model_path", int "gpu_id", int "gpu_thread", bool "tta", bool "uhd", bool "sc", float "sc_threshold", bool "skip", float "skip_threshold", bool "list_gpu")
+RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num", int "fps_den", string "model_path", int "gpu_id", int "gpu_thread", bool "tta", bool "uhd", bool "sc", float "sc_threshold", bool "skip", float "skip_threshold", bool "list_gpu", bool "denoise", int "denoise_tr")
 ```
 
 ### Parameters:
@@ -111,6 +111,16 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
 - list_gpu\
     Simply print a list of available GPU devices on the frame and does no interpolation.\
     Default: False.
+
+- denoise\
+    Whether to return only the interpolated frames.\
+    Default: False.
+
+- denoise_tr\
+    Frame radius.\
+    For example, `denoise_tr=1` means frames `n-1` and `n+1` are used.\
+    Must be greater than 0.\
+    Default: 1.
 
 ### Building:
 

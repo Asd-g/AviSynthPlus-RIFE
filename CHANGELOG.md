@@ -1,3 +1,6 @@
+##### 1.0.3:
+    Added parameters denoise, denoise_tr.
+
 ##### 1.0.2:
     Added quality oriented models. (https://github.com/styler00dollar/VapourSynth-RIFE-ncnn-Vulkan)
 
