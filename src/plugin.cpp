@@ -193,7 +193,7 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
                 avs_release_value(cl);
 
                 AVS_VideoFrame* abs_diff{ avs_get_frame(abs, frameNum) };
-                AVS_VideoFrame* abs_diff1{ avs_get_frame(abs, (std::min)(fi->vi.num_frames - 1, frameNum + 1)) };
+                AVS_VideoFrame* abs_diff1{ avs_get_frame(abs, frameNum + 1)) };
                 sceneChange = get_sad_c(abs_diff, abs_diff1) > d->sc_threshold;
 
                 avs_release_video_frame(abs_diff1);
@@ -265,7 +265,7 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
                 copy_frame(src0, dst);
             else
             {
-                AVS_VideoFrame* src1{ avs_get_frame(fi->child, (std::min)(frameNum + 1, fi->vi.num_frames - 1)) };
+                AVS_VideoFrame* src1{ avs_get_frame(fi->child, frameNum + 1) };
                 filter(src0, src1, dst, static_cast<float>(remainder) / d->factorNum, d);
 
                 avs_release_video_frame(src1);
@@ -300,7 +300,7 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
             for (int i{ 1 }; i <= d->tr; ++i)
             {
                 prev.emplace_back(avs_get_frame(abs, (std::max)(frameNum - i, 0)));
-                next.emplace_back(avs_get_frame(abs, (std::min)(fi->vi.num_frames - 1, frameNum + i)));
+                next.emplace_back(avs_get_frame(abs, (std::min)((std::max)(fi->vi.num_frames - 1, d->oldNumFrames - 1), frameNum + i)));
             }
 
             for (int i{ 2 }; i <= d->tr && !sceneChange; ++i)
@@ -555,7 +555,7 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
             copy_frame(avs_get_frame(fi->child, frameNum), dst);
         else
         {
-            AVS_VideoFrame* src1{ avs_get_frame(fi->child, (std::min)(frameNum + d->tr, fi->vi.num_frames - 1)) };
+            AVS_VideoFrame* src1{ avs_get_frame(fi->child, (std::min)(frameNum + d->tr, (std::max)(fi->vi.num_frames - 1, d->oldNumFrames - 1))) };
             filter(src0, src1, dst, 0.5f, d);
 
             avs_release_video_frame(src1);
