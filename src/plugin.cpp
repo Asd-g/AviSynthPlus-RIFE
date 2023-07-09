@@ -50,7 +50,7 @@ struct RIFEData
     int64_t factorDen;
     std::unique_ptr<RIFE> rife;
     std::unique_ptr<std::counting_semaphore<>> semaphore;
-    std::unique_ptr<char[]> msg;
+    std::string msg;
     int oldNumFrames;
     int tr;
 };
@@ -152,11 +152,8 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
             avs_release_video_frame(dst);
             avs_release_video_frame(src0);
 
-            const std::string err{ "RIFE: "s + error_message };
-            d->msg = std::make_unique<char[]>(std::size(err) + 1);
-            strcpy(d->msg.get(), err.c_str());
-
-            fi->error = d->msg.get();
+            d->msg = "RIFE: "s + error_message;
+            fi->error = d->msg.c_str();
 
             return nullptr;
         }
@@ -193,7 +190,7 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
                 avs_release_value(cl);
 
                 AVS_VideoFrame* abs_diff{ avs_get_frame(abs, frameNum) };
-                AVS_VideoFrame* abs_diff1{ avs_get_frame(abs, frameNum + 1)) };
+                AVS_VideoFrame* abs_diff1{ avs_get_frame(abs, frameNum + 1) };
                 sceneChange = get_sad_c(abs_diff, abs_diff1) > d->sc_threshold;
 
                 avs_release_video_frame(abs_diff1);
@@ -684,16 +681,11 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
 
         if (avs_defined(avs_array_elt(args, List_gpu)) ? avs_as_bool(avs_array_elt(args, List_gpu)) : 0)
         {
-            std::string text;
-
             for (auto i{ 0 }; i < ncnn::get_gpu_count(); ++i)
-                text += std::to_string(i) + ": " + ncnn::get_gpu_info(i).device_name() + "\n";
-
-            d->msg = std::make_unique<char[]>(text.size() + 1);
-            strcpy(d->msg.get(), text.c_str());
+                d->msg += std::to_string(i) + ": " + ncnn::get_gpu_info(i).device_name() + "\n";
 
             AVS_Value cl{ avs_new_value_clip(clip) };
-            AVS_Value args_[2]{ cl, avs_new_value_string(d->msg.get()) };
+            AVS_Value args_[2]{ cl, avs_new_value_string(d->msg.c_str()) };
             v = avs_invoke(env, "Text", avs_new_value_array(args_, 2), 0);
 
             avs_release_value(cl);
@@ -745,18 +737,28 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
             throw "failed to load model";
         ifs.close();
 
-        bool rife_v2{};
-        bool rife_v4{};
+        const bool rife_v2{ [&]()
+            {
+                if (modelPath.find("rife-v2") != std::string::npos)
+                    return true;
+                else if (modelPath.find("rife-v3") != std::string::npos)
+                    return true;
+                else
+                    return false;
+            }()
+        };
+        const bool rife_v4{ [&]()
+            {
+                if (modelPath.find("rife-v4") != std::string::npos)
+                   return true;
+               else if (modelPath.find("rife4") != std::string::npos)
+                    return true;
+                else
+                    return false;
+            }()
+        };
 
-        if (modelPath.find("rife-v2") != std::string::npos)
-            rife_v2 = true;
-        else if (modelPath.find("rife-v3") != std::string::npos)
-            rife_v2 = true;
-        else if (modelPath.find("rife-v4") != std::string::npos)
-            rife_v4 = true;
-        else if (modelPath.find("rife4") != std::string::npos)
-            rife_v4 = true;
-        else if (modelPath.find("rife") == std::string::npos)
+        if (modelPath.find("rife") == std::string::npos)
             throw "unknown model dir type";
 
         if (!rife_v4 && (d->factorNum != 2 || d->factorDen != 1))
@@ -779,10 +781,8 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
     }
     catch (const char* error)
     {
-        const std::string err{ "RIFE: "s + error };
-        d->msg = std::make_unique<char[]>(err.size() + 1);
-        strcpy(d->msg.get(), err.c_str());
-        v = avs_new_value_error(d->msg.get());
+        d->msg = "RIFE: "s + error;
+        v = avs_new_value_error(d->msg.c_str());
 
         if (--numGPUInstances == 0)
             ncnn::destroy_gpu_instance();
