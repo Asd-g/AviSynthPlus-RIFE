@@ -602,6 +602,17 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
 
     try
     {
+        if (!avs_check_version(env, 9))
+        {
+            if (avs_check_version(env, 10))
+            {
+                if (avs_get_env_property(env, AVS_AEP_INTERFACE_BUGFIX) < 2)
+                    throw "AviSynth+ version must be r3688 or later.";
+            }
+        }
+        else
+            throw "AviSynth+ version must be r3688 or later.";
+
         if (!avs_is_planar(&d->fi->vi) ||
             !avs_is_rgb(&d->fi->vi) ||
             avs_component_size(&d->fi->vi) < 4)
