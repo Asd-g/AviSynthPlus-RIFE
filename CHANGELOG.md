@@ -1,3 +1,8 @@
+##### 1.0.4:
+    Fixed crashing when unsupported Avs+ used by explicitly throwing error.
+    Changed the required Avs+ version.
+    Fixed retrieving max frame number when resulting fps is lower than the original one (regression since 1.0.2).
+
 ##### 1.0.3:
     Added parameters denoise, denoise_tr.
 
