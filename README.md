@@ -124,6 +124,12 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
     Must be greater than 0.<br>
     Default: 1.
 
+### More models:
+
+There are more models [here](https://github.com/styler00dollar/VapourSynth-RIFE-ncnn-Vulkan/tree/master/models).
+
+They can be used with parameter `model_path`. It's important to not rename the folder name of the model.
+
 ### Building:
 
 - Requires `Boost`, `Vulkan SDK`, `ncnn`.
