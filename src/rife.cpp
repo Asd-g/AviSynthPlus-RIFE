@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <vector>
 
-#include "ncnn/benchmark.h"
+#include "benchmark.h"
 
 #include "rife_preproc.comp.hex.h"
 #include "rife_postproc.comp.hex.h"
