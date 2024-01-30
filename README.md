@@ -37,23 +37,47 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
     6: rife-v2.4<br>
     7: rife-v3.0<br>
     8: rife-v3.1<br>
-    9: rife-v4 (ensemble=False / fast=True)<br>
-    10: rife-v4 (ensemble=True / fast=False)<br>
-    11: rife-v4.1 (ensemble=False / fast=True)<br>
-    12: rife-v4.1 (ensemble=True / fast=False)<br>
-    13: rife-v4.2 (ensemble=False / fast=True)<br>
-    14: rife-v4.2 (ensemble=True / fast=False)<br>
-    15: rife-v4.3 (ensemble=False / fast=True)<br>
-    16: rife-v4.3 (ensemble=True / fast=False)<br>
-    17: rife-v4.4 (ensemble=False / fast=True)<br>
-    18: rife-v4.4 (ensemble=True / fast=False)<br>
-    19: rife-v4.5 (ensemble=False)<br>
-    20: rife-v4.5 (ensemble=True)<br>
-    21: rife-v4.6 (ensemble=False)<br>
-    22: rife-v4.6 (ensemble=True)<br>
-    23: sudo_rife4 (ensemble=False / fast=True) (custom model)<br>
-    24: sudo_rife4 (ensemble=True / fast=False) (custom model)<br>
-    25: sudo_rife4 (ensemble=True / fast=True) (custom model)<br>
+    9: rife-v3.9_ensembleFalse_fastTrue<br>
+    10: rife-v3.9_ensembleTrue_fastFalse<br>
+    11: rife-v4_ensembleFalse_fastTrue<br>
+    12: rife-v4_ensembleTrue_fastFalse<br>
+    13: rife-v4.1_ensembleFalse_fastTrue<br>
+    14: rife-v4.1_ensembleTrue_fastFalse<br>
+    15: rife-v4.2_ensembleFalse_fastTrue<br>
+    16: rife-v4.2_ensembleTrue_fastFalse<br>
+    17: rife-v4.3_ensembleFalse_fastTrue<br>
+    18: rife-v4.3_ensembleTrue_fastFalse<br>
+    19: rife-v4.4_ensembleFalse_fastTrue<br>
+    20: rife-v4.4_ensembleTrue_fastFalse<br>
+    21: rife-v4.5_ensembleFalse<br>
+    22: rife-v4.5_ensembleTrue<br>
+    23: rife-v4.6_ensembleFalse<br>
+    24: rife-v4.6_ensembleTrue<br>
+    25: rife-v4.7_ensembleFalse<br>
+    26: rife-v4.7_ensembleTrue<br>
+    27: rife-v4.8_ensembleFalse<br>
+    28: rife-v4.8_ensembleTrue<br>
+    29: rife-v4.9_ensembleFalse<br>
+    30: rife-v4.9_ensembleTrue<br>
+    31: rife-v4.10_ensembleFalse<br>
+    32: rife-v4.10_ensembleTrue<br>
+    33: rife-v4.11_ensembleFalse<br>
+    34: rife-v4.11_ensembleTrue<br>
+    35: rife-v4.12_ensembleFalse<br>
+    36: rife-v4.12_ensembleTrue<br>
+    37: rife-v4.12_lite_ensembleFalse<br>
+    38: rife-v4.12_lite_ensembleTrue<br>
+    39: rife-v4.13_ensembleFalse<br>
+    40: rife-v4.13_ensembleTrue<br>
+    41: rife-v4.13_lite_ensembleFalse<br>
+    42: rife-v4.13_lite_ensembleTrue<br>
+    43: rife-v4.14_ensembleFalse<br>
+    44: rife-v4.14_ensembleTrue<br>
+    45: rife-v4.14_lite_ensembleFalse<br>
+    46: rife-v4.14_lite_ensembleTrue<br>
+    47: sudo_rife4_ensembleFalse_fastTrue<br>
+    48: sudo_rife4_ensembleTrue_fastFalse<br>
+    49: sudo_rife4_ensembleTrue_fastTrue)<br>
     Default: 5.
 
 - factor_num, factor_den<br>
@@ -124,15 +148,17 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
     Must be greater than 0.<br>
     Default: 1.
 
-### More models:
-
-There are more models [here](https://github.com/styler00dollar/VapourSynth-RIFE-ncnn-Vulkan/tree/master/models).
-
-They can be used with parameter `model_path`. It's important to not rename the folder name of the model.
-
 ### Building:
 
 - Requires `Boost`, `Vulkan SDK`, `ncnn`.
 
-- Windows<br>
-    Use solution files.
+```
+git clone --recurse-submodules https://github.com/Asd-g/AviSynthPlus-RIFE
+cd AviSynthPlus-RIFE
+
+# Building boost (optional):
+#b2 --with-system --with-filesystem --with-chrono -q --toolset=msvc-14.3 address-model=64 variant=release link=static runtime-link=shared threading=multi --hash --prefix=.\bin\x64
+#b2 --with-system --with-filesystem --with-chrono -q --toolset=msvc-14.3 address-model=64 variant=release link=static runtime-link=shared threading=multi --hash --prefix=.\bin\x64 install
+
+cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=<path_to_boost_installation>;<path_to_ncnn_installation>;<path_to_vulkan_installation>
+```

@@ -1,3 +1,6 @@
+##### 1.1.0:
+    Added more models. (https://github.com/styler00dollar/VapourSynth-RIFE-ncnn-Vulkan)
+
 ##### 1.0.4:
     Fixed crashing when unsupported Avs+ used by explicitly throwing error.
     Changed the required Avs+ version.

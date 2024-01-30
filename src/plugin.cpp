@@ -23,20 +23,93 @@
     SOFTWARE.
 */
 
+#include <array>
 #include <atomic>
 #include <fstream>
 #include <memory>
 #include <semaphore>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "avisynth_c.h"
 #include "boost/dll/runtime_symbol_info.hpp"
 #include "rife.h"
 
-using namespace std::literals;
-
 static std::atomic<int> numGPUInstances{ 0 };
+
+template <typename Key, typename Value, std::size_t Size>
+struct Map
+{
+    std::array<std::pair<Key, Value>, Size> data;
+    constexpr Value at(const Key& key) const
+    {
+        const auto itr{ std::find_if(begin(data), end(data), [&key](const auto& v) { return v.first == key; }) };
+
+        if (itr != end(data))
+            return itr->second;
+        if constexpr (std::is_same_v<Key, int>)
+            return "";
+        else
+            return std::make_tuple(nullptr, -1.0f, -1.0f);
+    }
+};
+
+static constexpr std::array<std::pair<int, std::string_view>, 50> models_num
+{
+    std::make_pair(0, "/rife"),
+    std::make_pair(1, "/rife-HD"),
+    std::make_pair(2, "/rife-UHD"),
+    std::make_pair(3, "/rife-anime"),
+    std::make_pair(4, "/rife-v2"),
+    std::make_pair(5, "/rife-v2.3"),
+    std::make_pair(6, "/rife-v2.4"),
+    std::make_pair(7, "/rife-v3.0"),
+    std::make_pair(8, "/rife-v3.1"),
+    std::make_pair(9, "/rife-v3.9_ensembleFalse_fastTrue"),
+    std::make_pair(10, "/rife-v3.9_ensembleTrue_fastFalse"),
+    std::make_pair(11, "/rife-v4_ensembleFalse_fastTrue"),
+    std::make_pair(12, "/rife-v4_ensembleTrue_fastFalse"),
+    std::make_pair(13, "/rife-v4.1_ensembleFalse_fastTrue"),
+    std::make_pair(14, "/rife-v4.1_ensembleTrue_fastFalse"),
+    std::make_pair(15, "/rife-v4.2_ensembleFalse_fastTrue"),
+    std::make_pair(16, "/rife-v4.2_ensembleTrue_fastFalse"),
+    std::make_pair(17, "/rife-v4.3_ensembleFalse_fastTrue"),
+    std::make_pair(18, "/rife-v4.3_ensembleTrue_fastFalse"),
+    std::make_pair(19, "/rife-v4.4_ensembleFalse_fastTrue"),
+    std::make_pair(20, "/rife-v4.4_ensembleTrue_fastFalse"),
+    std::make_pair(21, "/rife-v4.5_ensembleFalse"),
+    std::make_pair(22, "/rife-v4.5_ensembleTrue"),
+    std::make_pair(23, "/rife-v4.6_ensembleFalse"),
+    std::make_pair(24, "/rife-v4.6_ensembleTrue"),
+    std::make_pair(25, "/rife-v4.7_ensembleFalse"),
+    std::make_pair(26, "/rife-v4.7_ensembleTrue"),
+    std::make_pair(27, "/rife-v4.8_ensembleFalse"),
+    std::make_pair(28, "/rife-v4.8_ensembleTrue"),
+    std::make_pair(29, "/rife-v4.9_ensembleFalse"),
+    std::make_pair(30, "/rife-v4.9_ensembleTrue"),
+    std::make_pair(31, "/rife-v4.10_ensembleFalse"),
+    std::make_pair(32, "/rife-v4.10_ensembleTrue"),
+    std::make_pair(33, "/rife-v4.11_ensembleFalse"),
+    std::make_pair(34, "/rife-v4.11_ensembleTrue"),
+    std::make_pair(35, "/rife-v4.12_ensembleFalse"),
+    std::make_pair(36, "/rife-v4.12_ensembleTrue"),
+    std::make_pair(37, "/rife-v4.12_lite_ensembleFalse"),
+    std::make_pair(38, "/rife-v4.12_lite_ensembleTrue"),
+    std::make_pair(39, "/rife-v4.13_ensembleFalse"),
+    std::make_pair(40, "/rife-v4.13_ensembleTrue"),
+    std::make_pair(41, "/rife-v4.13_lite_ensembleFalse"),
+    std::make_pair(42, "/rife-v4.13_lite_ensembleTrue"),
+    std::make_pair(43, "/rife-v4.14_ensembleFalse"),
+    std::make_pair(44, "/rife-v4.14_ensembleTrue"),
+    std::make_pair(45, "/rife-v4.14_lite_ensembleFalse"),
+    std::make_pair(46, "/rife-v4.14_lite_ensembleTrue"),
+    std::make_pair(47, "/sudo_rife4_ensembleFalse_fastTrue"),
+    std::make_pair(48, "/sudo_rife4_ensembleTrue_fastFalse"),
+    std::make_pair(49, "/sudo_rife4_ensembleTrue_fastTrue")
+};
+
+static constexpr auto map_models{ Map<int, std::string_view, 50>{ { models_num } } };
 
 struct RIFEData
 {
@@ -143,30 +216,30 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
     AVS_VideoFrame* dst{ avs_new_video_frame_p(fi->env, &fi->vi, src0) };
 
     const auto set_error{ [&](const std::string& error_message, AVS_Value val1, AVS_Value val2, AVS_Value val3)
-        {
-            using namespace std::string_literals;
+    {
+        using namespace std::string_literals;
 
-            avs_release_value(val3);
-            avs_release_value(val2);
-            avs_release_value(val1);
-            avs_release_video_frame(dst);
-            avs_release_video_frame(src0);
+        avs_release_value(val3);
+        avs_release_value(val2);
+        avs_release_value(val1);
+        avs_release_video_frame(dst);
+        avs_release_video_frame(src0);
 
-            d->msg = "RIFE: "s + error_message;
-            fi->error = d->msg.c_str();
+        d->msg = "RIFE: "s + error_message;
+        fi->error = d->msg.c_str();
 
-            return nullptr;
-        }
+        return nullptr;
+    }
     };
 
     auto copy_frame{ [&](const AVS_VideoFrame* src, AVS_VideoFrame* dst)
-        {
-            const int planes[3]{ AVS_PLANAR_R, AVS_PLANAR_G, AVS_PLANAR_B };
+    {
+        const int planes[3]{ AVS_PLANAR_R, AVS_PLANAR_G, AVS_PLANAR_B };
 
-            for (int i{ 0 }; i < 3; ++i)
-                avs_bit_blt(fi->env, avs_get_write_ptr_p(dst, planes[i]), avs_get_pitch_p(dst, planes[i]),
-                    avs_get_read_ptr_p(src, planes[i]), avs_get_pitch_p(src, planes[i]), avs_get_row_size_p(src, planes[i]), avs_get_height_p(src, planes[i]));
-        }
+        for (int i{ 0 }; i < 3; ++i)
+            avs_bit_blt(fi->env, avs_get_write_ptr_p(dst, planes[i]), avs_get_pitch_p(dst, planes[i]),
+                avs_get_read_ptr_p(src, planes[i]), avs_get_pitch_p(src, planes[i]), avs_get_row_size_p(src, planes[i]), avs_get_height_p(src, planes[i]));
+    }
     };
 
     if constexpr (!denoise)
@@ -644,8 +717,8 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
         d->skipThreshold = avs_defined(avs_array_elt(args, Skip_threshold)) ? avs_as_float(avs_array_elt(args, Skip_threshold)) : 60.0;
         d->tr = avs_defined(avs_array_elt(args, Denoise_tr)) ? avs_as_float(avs_array_elt(args, Denoise_tr)) : 1;
 
-        if (model < 0 || model > 25)
-            throw "model must be between 0 and 25 (inclusive)";
+        if (model < 0 || model > models_num.size() - 1)
+            throw ("model must be between 0 and " + std::to_string(models_num.size() - 1) + " (inclusive)").c_str();
         if (factorNum < 1)
             throw "factor_num must be at least 1";
         if (factorDen < 1)
@@ -709,39 +782,7 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
         }
 
         if (modelPath.empty())
-        {
-            modelPath = boost::dll::this_line_location().parent_path().generic_string() + "/models";
-
-            switch (model)
-            {
-                case 0: modelPath += "/rife"; break;
-                case 1: modelPath += "/rife-HD"; break;
-                case 2: modelPath += "/rife-UHD"; break;
-                case 3: modelPath += "/rife-anime"; break;
-                case 4: modelPath += "/rife-v2"; break;
-                case 5: modelPath += "/rife-v2.3"; break;
-                case 6: modelPath += "/rife-v2.4"; break;
-                case 7: modelPath += "/rife-v3.0"; break;
-                case 8: modelPath += "/rife-v3.1"; break;
-                case 9: modelPath += "/rife-v4_ensembleFalse_fastTrue"; break;
-                case 10: modelPath += "/rife-v4_ensembleTrue_fastFalse"; break;
-                case 11: modelPath += "/rife-v4.1_ensembleFalse_fastTrue"; break;
-                case 12: modelPath += "/rife-v4.1_ensembleTrue_fastFalse"; break;
-                case 13: modelPath += "/rife-v4.2_ensembleFalse_fastTrue"; break;
-                case 14: modelPath += "/rife-v4.2_ensembleTrue_fastFalse"; break;
-                case 15: modelPath += "/rife-v4.3_ensembleFalse_fastTrue"; break;
-                case 16: modelPath += "/rife-v4.3_ensembleTrue_fastFalse"; break;
-                case 17: modelPath += "/rife-v4.4_ensembleFalse_fastTrue"; break;
-                case 18: modelPath += "/rife-v4.4_ensembleTrue_fastFalse"; break;
-                case 19: modelPath += "/rife-v4.5_ensembleFalse"; break;
-                case 20: modelPath += "/rife-v4.5_ensembleTrue"; break;
-                case 21: modelPath += "/rife-v4.6_ensembleFalse"; break;
-                case 22: modelPath += "/rife-v4.6_ensembleTrue"; break;
-                case 23: modelPath += "/sudo_rife4_ensembleFalse_fastTrue"; break;
-                case 24: modelPath += "/sudo_rife4_ensembleTrue_fastFalse"; break;
-                case 25: modelPath += "/sudo_rife4_ensembleTrue_fastTrue"; break;
-            }
-        }
+            modelPath = boost::dll::this_line_location().parent_path().generic_string() + "/models" + std::string{ map_models.at(model) };
 
         std::ifstream ifs{ modelPath + "/flownet.param" };
         if (!ifs.is_open())
@@ -749,24 +790,24 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
         ifs.close();
 
         const bool rife_v2{ [&]()
-            {
-                if (modelPath.find("rife-v2") != std::string::npos)
-                    return true;
-                else if (modelPath.find("rife-v3") != std::string::npos)
-                    return true;
-                else
-                    return false;
-            }()
+        {
+            if (modelPath.find("rife-v2") != std::string::npos)
+                return true;
+            else if (modelPath.find("rife-v3") != std::string::npos)
+                return true;
+            else
+                return false;
+        }()
         };
         const bool rife_v4{ [&]()
-            {
-                if (modelPath.find("rife-v4") != std::string::npos)
-                   return true;
-               else if (modelPath.find("rife4") != std::string::npos)
-                    return true;
-                else
-                    return false;
-            }()
+        {
+            if (modelPath.find("rife-v4") != std::string::npos)
+                return true;
+            else if (modelPath.find("rife4") != std::string::npos)
+                return true;
+            else
+                return false;
+        }()
         };
 
         if (modelPath.find("rife") == std::string::npos)
@@ -792,7 +833,7 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
     }
     catch (const char* error)
     {
-        d->msg = "RIFE: "s + error;
+        d->msg = std::string{ "RIFE: " } + error;
         v = avs_new_value_error(d->msg.c_str());
 
         if (--numGPUInstances == 0)
