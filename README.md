@@ -153,7 +153,7 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
 - Requires `Boost`, `Vulkan SDK`, `ncnn`.
 
 ```
-git clone --recurse-submodules https://github.com/Asd-g/AviSynthPlus-RIFE
+git clone --recurse-submodules --depth 1 https://github.com/Asd-g/AviSynthPlus-RIFE
 cd AviSynthPlus-RIFE
 
 # Building boost (optional):
