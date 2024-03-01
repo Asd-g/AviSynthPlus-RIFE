@@ -13,11 +13,7 @@ public:
     RIFE(int gpuid, bool tta_mode = false, bool uhd_mode = false, int num_threads = 1, bool rife_v2 = false, bool rife_v4 = false);
     ~RIFE();
 
-#if _WIN32
-    int load(const std::wstring& modeldir);
-#else
     int load(const std::string& modeldir);
-#endif
 
     int process(const float* src0R, const float* src0G, const float* src0B,
         const float* src1R, const float* src1G, const float* src1B,

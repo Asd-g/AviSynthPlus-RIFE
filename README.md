@@ -15,7 +15,7 @@ This is [a port of the VapourSynth plugin RIFE](https://github.com/HomeOfVapourS
 ### Usage:
 
 ```
-RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num", int "fps_den", string "model_path", int "gpu_id", int "gpu_thread", bool "tta", bool "uhd", bool "sc", float "sc_threshold", bool "skip", float "skip_threshold", bool "list_gpu", bool "denoise", int "denoise_tr")
+RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num", int "fps_den", string "model_path", int "gpu_id", int "gpu_thread", bool "tta", bool "uhd", bool "sc", bool "sc1", float "sc_threshold", bool "skip", float "skip_threshold", bool "list_gpu", bool "denoise", int "denoise_tr")
 ```
 
 ### Parameters:
@@ -117,6 +117,12 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
     Default: False.
 - sc<br>
     Avoid interpolating frames over scene changes.<br>
+    This cannot be true when `sc1=true`.<br>
+    Default: False.
+
+- sc1<br>
+    Blend frames (average) frames over scene changes.<br>
+    This cannot be true when `sc=true`.<br>
     Default: False.
 
 - sc_threshold<br>

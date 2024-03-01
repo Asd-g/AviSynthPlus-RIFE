@@ -1,3 +1,7 @@
+##### 1.2.0:
+    Added parameter sc1.
+    Fixed undefined behavior with ACP file names.
+
 ##### 1.1.0:
     Added more models. (https://github.com/styler00dollar/VapourSynth-RIFE-ncnn-Vulkan)
 

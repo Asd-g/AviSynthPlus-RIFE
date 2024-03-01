@@ -76,33 +76,20 @@ RIFE::~RIFE()
 }
 
 #if _WIN32
-static void load_param_model(ncnn::Net& net, const std::wstring& modeldir, const wchar_t* name)
+static inline std::string path_conversion(const std::string& name, const unsigned CP) noexcept
 {
-    wchar_t parampath[256];
-    wchar_t modelpath[256];
-    swprintf(parampath, 256, L"%s/%s.param", modeldir.c_str(), name);
-    swprintf(modelpath, 256, L"%s/%s.bin", modeldir.c_str(), name);
+    int num_chars{ MultiByteToWideChar(CP, 0, &name[0], static_cast<int>(name.size()), nullptr, 0) };
+    std::wstring wide_source(num_chars, 0);
+    MultiByteToWideChar(CP, 0, &name[0], static_cast<int>(name.size()), &wide_source[0], num_chars);
 
-    {
-        FILE* fp = _wfopen(parampath, L"rb");
-        if (!fp)
-            fwprintf(stderr, L"_wfopen %ls failed\n", parampath);
+    num_chars = WideCharToMultiByte(CP, 0, &wide_source[0], static_cast<int>(wide_source.size()), nullptr, 0, nullptr, nullptr);
+    std::string source(num_chars, 0);
+    WideCharToMultiByte(CP, 0, &wide_source[0], static_cast<int>(wide_source.size()), &source[0], num_chars, nullptr, nullptr);
 
-        net.load_param(fp);
-
-        fclose(fp);
-    }
-    {
-        FILE* fp = _wfopen(modelpath, L"rb");
-        if (!fp)
-            fwprintf(stderr, L"_wfopen %ls failed\n", modelpath);
-
-        net.load_model(fp);
-
-        fclose(fp);
-    }
+    return source;
 }
-#else
+#endif
+
 static void load_param_model(ncnn::Net& net, const std::string& modeldir, const char* name)
 {
     char parampath[256];
@@ -110,16 +97,31 @@ static void load_param_model(ncnn::Net& net, const std::string& modeldir, const 
     sprintf(parampath, "%s/%s.param", modeldir.c_str(), name);
     sprintf(modelpath, "%s/%s.bin", modeldir.c_str(), name);
 
+#ifdef _WIN32
+    std::string converted_parampath{ path_conversion(parampath, CP_ACP) };
+    std::string converted_modelpath{ path_conversion(modelpath, CP_ACP) };
+
+    sprintf(parampath, "%s", converted_parampath.c_str());
+    sprintf(modelpath, "%s", converted_modelpath.c_str());
+
+    if (net.load_param(parampath) || net.load_model(modelpath))
+    {
+        converted_parampath = path_conversion(parampath, CP_UTF8);
+        converted_modelpath = path_conversion(modelpath, CP_UTF8);
+
+        sprintf(parampath, "%s", converted_parampath.c_str());
+        sprintf(modelpath, "%s", converted_modelpath.c_str());
+
+        net.load_param(parampath);
+        net.load_model(modelpath);
+    }
+#else
     net.load_param(parampath);
     net.load_model(modelpath);
+#endif // _WIN32
 }
-#endif
 
-#if _WIN32
-int RIFE::load(const std::wstring& modeldir)
-#else
 int RIFE::load(const std::string& modeldir)
-#endif
 {
     ncnn::Option opt;
     opt.num_threads = num_threads;
@@ -141,21 +143,12 @@ int RIFE::load(const std::string& modeldir)
     contextnet.register_custom_layer("rife.Warp", Warp_layer_creator);
     fusionnet.register_custom_layer("rife.Warp", Warp_layer_creator);
 
-#if _WIN32
-    load_param_model(flownet, modeldir, L"flownet");
-    if (!rife_v4)
-    {
-        load_param_model(contextnet, modeldir, L"contextnet");
-        load_param_model(fusionnet, modeldir, L"fusionnet");
-    }
-#else
     load_param_model(flownet, modeldir, "flownet");
     if (!rife_v4)
     {
         load_param_model(contextnet, modeldir, "contextnet");
         load_param_model(fusionnet, modeldir, "fusionnet");
     }
-#endif
 
     // initialize preprocess and postprocess pipeline
     if (vkdev)
