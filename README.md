@@ -75,9 +75,15 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
     44: rife-v4.14_ensembleTrue<br>
     45: rife-v4.14_lite_ensembleFalse<br>
     46: rife-v4.14_lite_ensembleTrue<br>
-    47: sudo_rife4_ensembleFalse_fastTrue<br>
-    48: sudo_rife4_ensembleTrue_fastFalse<br>
-    49: sudo_rife4_ensembleTrue_fastTrue)<br>
+    47: rife-v4.15_ensembleFalse<br>
+    48: rife-v4.15_ensembleTrue<br>
+    49: rife-v4.15_lite_ensembleFalse<br>
+    50: rife-v4.15_lite_ensembleTrue<br>
+    51: rife-v4.16_lite_ensembleFalse<br>
+    52: rife-v4.16_lite_ensembleTrue<br>
+    53: sudo_rife4_ensembleFalse_fastTrue<br>
+    54: sudo_rife4_ensembleTrue_fastFalse<br>
+    55: sudo_rife4_ensembleTrue_fastTrue<br>
     Default: 5.
 
 - factor_num, factor_den<br>
@@ -159,7 +165,7 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
 - Requires `Boost`, `Vulkan SDK`, `ncnn`.
 
 ```
-git clone --recurse-submodules --depth 1 https://github.com/Asd-g/AviSynthPlus-RIFE
+git clone --depth 1 https://github.com/Asd-g/AviSynthPlus-RIFE
 cd AviSynthPlus-RIFE
 
 # Building boost (optional):

@@ -55,7 +55,7 @@ struct Map
     }
 };
 
-static constexpr std::array<std::pair<int, std::string_view>, 50> models_num
+static constexpr std::array<std::pair<int, std::string_view>, 56> models_num
 {
     std::make_pair(0, "/rife"),
     std::make_pair(1, "/rife-HD"),
@@ -104,12 +104,18 @@ static constexpr std::array<std::pair<int, std::string_view>, 50> models_num
     std::make_pair(44, "/rife-v4.14_ensembleTrue"),
     std::make_pair(45, "/rife-v4.14_lite_ensembleFalse"),
     std::make_pair(46, "/rife-v4.14_lite_ensembleTrue"),
-    std::make_pair(47, "/sudo_rife4_ensembleFalse_fastTrue"),
-    std::make_pair(48, "/sudo_rife4_ensembleTrue_fastFalse"),
-    std::make_pair(49, "/sudo_rife4_ensembleTrue_fastTrue")
+    std::make_pair(47, "/rife-v4.15_ensembleFalse"),
+    std::make_pair(48, "/rife-v4.15_ensembleTrue"),
+    std::make_pair(49, "/rife-v4.15_lite_ensembleFalse"),
+    std::make_pair(50, "/rife-v4.15_lite_ensembleTrue"),
+    std::make_pair(51, "/rife-v4.16_lite_ensembleFalse"),
+    std::make_pair(52, "/rife-v4.16_lite_ensembleTrue"),
+    std::make_pair(53, "/sudo_rife4_ensembleFalse_fastTrue"),
+    std::make_pair(54, "/sudo_rife4_ensembleTrue_fastFalse"),
+    std::make_pair(55, "/sudo_rife4_ensembleTrue_fastTrue")
 };
 
-static constexpr auto map_models{ Map<int, std::string_view, 50>{ { models_num } } };
+static constexpr auto map_models{ Map<int, std::string_view, 56>{ { models_num } } };
 
 struct RIFEData
 {
