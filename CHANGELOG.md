@@ -1,3 +1,6 @@
+##### 1.2.1.1:
+    Used ncnn that handle properly multiple GPU instances.
+
 ##### 1.2.1:
     Added more models. (https://github.com/styler00dollar/VapourSynth-RIFE-ncnn-Vulkan)
 
