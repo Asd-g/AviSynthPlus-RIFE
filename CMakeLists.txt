@@ -9,7 +9,18 @@ endif()
 project(RIFE)
 
 find_package(Boost 1.80 REQUIRED COMPONENTS filesystem)
-find_package(ncnn REQUIRED)
+
+option(NCNN_INSTALL_SDK "" OFF)
+option(NCNN_PIXEL_ROTATE "" OFF)
+option(NCNN_PIXEL_AFFINE "" OFF)
+option(NCNN_PIXEL_DRAWING "" OFF)
+option(NCNN_VULKAN "" ON)
+option(NCNN_BUILD_BENCHMARK "" OFF)
+option(NCNN_BUILD_TESTS "" OFF)
+option(NCNN_BUILD_TOOLS "" OFF)
+option(NCNN_BUILD_EXAMPLES "" OFF)
+option(NCNN_SIMPLEVK "" OFF)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ncnn)
 
 set(sources
     ${CMAKE_CURRENT_SOURCE_DIR}/src/plugin.cpp
@@ -48,6 +59,8 @@ if (NOT CMAKE_GENERATOR MATCHES "Visual Studio")
     endif()
 
     message(STATUS "Build type - ${CMAKE_BUILD_TYPE}")
+else()
+    target_compile_options(RIFE PRIVATE "/EHsc")
 endif()
 
 if (WIN32)

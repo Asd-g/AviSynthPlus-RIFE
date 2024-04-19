@@ -8,7 +8,7 @@ This is [a port of the VapourSynth plugin RIFE](https://github.com/HomeOfVapourS
 
 - Vulkan device
 
-- AviSynth+ r3688 (can be downloaded from [here](https://gitlab.com/uvz/AviSynthPlus-Builds) until official release is uploaded) or later
+- AviSynth+ r3688 or later ([1](https://github.com/AviSynth/AviSynthPlus/releases) / [2](https://forum.doom9.org/showthread.php?t=181351) / [3](https://gitlab.com/uvz/AviSynthPlus-Builds))
 
 - Microsoft VisualC++ Redistributable Package 2022 (can be downloaded from [here](https://github.com/abbodi1406/vcredist/releases))
 
@@ -162,15 +162,15 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
 
 ### Building:
 
-- Requires `Boost`, `Vulkan SDK`, `ncnn`.
+- Requires `Boost`, `Vulkan SDK`.
 
 ```
-git clone --depth 1 https://github.com/Asd-g/AviSynthPlus-RIFE
+git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/Asd-g/AviSynthPlus-RIFE
 cd AviSynthPlus-RIFE
 
 # Building boost (optional):
 #b2 --with-system --with-filesystem --with-chrono -q --toolset=msvc-14.3 address-model=64 variant=release link=static runtime-link=shared threading=multi --hash --prefix=.\bin\x64
 #b2 --with-system --with-filesystem --with-chrono -q --toolset=msvc-14.3 address-model=64 variant=release link=static runtime-link=shared threading=multi --hash --prefix=.\bin\x64 install
 
-cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=<path_to_boost_installation>;<path_to_ncnn_installation>;<path_to_vulkan_installation>
+cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=<path_to_boost_installation>;<path_to_vulkan_installation>
 ```
