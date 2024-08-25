@@ -55,7 +55,7 @@ struct Map
     }
 };
 
-static constexpr std::array<std::pair<int, std::string_view>, 56> models_num
+static constexpr std::array<std::pair<int, std::string_view>, 69> models_num
 {
     std::make_pair(0, "/rife"),
     std::make_pair(1, "/rife-HD"),
@@ -110,12 +110,25 @@ static constexpr std::array<std::pair<int, std::string_view>, 56> models_num
     std::make_pair(50, "/rife-v4.15_lite_ensembleTrue"),
     std::make_pair(51, "/rife-v4.16_lite_ensembleFalse"),
     std::make_pair(52, "/rife-v4.16_lite_ensembleTrue"),
-    std::make_pair(53, "/sudo_rife4_ensembleFalse_fastTrue"),
-    std::make_pair(54, "/sudo_rife4_ensembleTrue_fastFalse"),
-    std::make_pair(55, "/sudo_rife4_ensembleTrue_fastTrue")
+    std::make_pair(53, "/rife-v4.17_ensembleFalse"),
+    std::make_pair(54, "/rife-v4.17_ensembleTrue"),
+    std::make_pair(55, "/rife-v4.17_lite_ensembleFalse"),
+    std::make_pair(56, "/rife-v4.17_lite_ensembleTrue"),
+    std::make_pair(57, "/rife-v4.18_ensembleFalse"),
+    std::make_pair(58, "/rife-v4.18_ensembleTrue"),
+    std::make_pair(59, "/rife-v4.19_beta_ensembleFalse"),
+    std::make_pair(60, "/rife-v4.19_beta_ensembleTrue"),
+    std::make_pair(61, "/rife-v4.20_ensembleFalse"),
+    std::make_pair(62, "/rife-v4.20_ensembleTrue"),
+    std::make_pair(63, "/rife-v4.21_ensembleFalse"),
+    std::make_pair(64, "/rife-v4.22_ensembleFalse"),
+    std::make_pair(65, "/rife-v4.22_lite_ensembleFalse"),
+    std::make_pair(66, "/sudo_rife4_ensembleFalse_fastTrue"),
+    std::make_pair(67, "/sudo_rife4_ensembleTrue_fastFalse"),
+    std::make_pair(68, "/sudo_rife4_ensembleTrue_fastTrue")
 };
 
-static constexpr auto map_models{ Map<int, std::string_view, 56>{ { models_num } } };
+static constexpr auto map_models{ Map<int, std::string_view, 69>{ { models_num } } };
 
 struct RIFEData
 {
