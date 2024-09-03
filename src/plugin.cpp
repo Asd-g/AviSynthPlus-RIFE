@@ -218,7 +218,7 @@ static AVS_FORCEINLINE const double get_sad_c(const AVS_VideoFrame* src, const A
     return (accum / (height * width));
 }
 
-static AVS_FORCEINLINE AVS_VideoFrame* set_error(AVS_VideoFrame* src0, AVS_VideoFrame* dst, const std::string error_message, AVS_Value& val1, AVS_Value& val2, AVS_Value& val3, AVS_FilterInfo* fi)
+static AVS_FORCEINLINE AVS_VideoFrame* set_error(AVS_VideoFrame* src0, AVS_VideoFrame* dst, const std::string& error_message, AVS_Value& val1, AVS_Value& val2, AVS_Value& val3, AVS_FilterInfo* fi)
 {
     RIFEData* d{ reinterpret_cast<RIFEData*>(fi->user_data) };
 
@@ -922,7 +922,7 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
             }
         }
     }
-    catch (std::string error)
+    catch (std::string& error)
     {
         d->msg = "RIFE: " + error;
         v = avs_new_value_error(d->msg.c_str());
