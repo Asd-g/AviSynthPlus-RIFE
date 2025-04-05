@@ -22,26 +22,21 @@
 
 DEFINE_LAYER_CREATOR(Warp)
 
-RIFE::RIFE(int gpuid, bool _tta_mode, bool _uhd_mode, int _num_threads, bool _rife_v2, bool _rife_v4)
+RIFE::RIFE(int gpuid, bool _tta_mode, bool _uhd_mode, int _num_threads, bool _rife_v2, bool _rife_v4, int _padding)
+    : tta_mode(_tta_mode), uhd_mode(_uhd_mode), num_threads(_num_threads), rife_v2(_rife_v2), rife_v4(_rife_v4), padding(_padding),
+    rife_preproc{},
+    rife_postproc{},
+    rife_flow_tta_avg{},
+    rife_flow_tta_temporal_avg{},
+    rife_out_tta_temporal_avg{},
+    rife_v4_timestep{},
+    rife_uhd_downscale_image{},
+    rife_uhd_upscale_flow{},
+    rife_uhd_double_flow{},
+    rife_v2_slice_flow{},
+    tta_temporal_mode{}
 {
     vkdev = gpuid == -1 ? 0 : ncnn::get_gpu_device(gpuid);
-
-    rife_preproc = 0;
-    rife_postproc = 0;
-    rife_flow_tta_avg = 0;
-    rife_flow_tta_temporal_avg = 0;
-    rife_out_tta_temporal_avg = 0;
-    rife_v4_timestep = 0;
-    rife_uhd_downscale_image = 0;
-    rife_uhd_upscale_flow = 0;
-    rife_uhd_double_flow = 0;
-    rife_v2_slice_flow = 0;
-    tta_mode = _tta_mode;
-    tta_temporal_mode = false;
-    uhd_mode = _uhd_mode;
-    num_threads = _num_threads;
-    rife_v2 = _rife_v2;
-    rife_v4 = _rife_v4;
 }
 
 RIFE::~RIFE()
@@ -362,9 +357,8 @@ int RIFE::process(const float* src0R, const float* src0G, const float* src0B,
     opt.workspace_vkallocator = blob_vkallocator;
     opt.staging_vkallocator = staging_vkallocator;
 
-    // pad to 32n
-    int w_padded = (w + 31) / 32 * 32;
-    int h_padded = (h + 31) / 32 * 32;
+    const int w_padded = (w + (padding - 1)) / padding * padding;
+    const int h_padded = (h + (padding -1)) / padding * padding;
 
     const size_t in_out_tile_elemsize = opt.use_fp16_storage ? 2u : 4u;
 
@@ -1158,9 +1152,8 @@ int RIFE::process_v4(const float* src0R, const float* src0G, const float* src0B,
     opt.workspace_vkallocator = blob_vkallocator;
     opt.staging_vkallocator = staging_vkallocator;
 
-    // pad to 32n
-    int w_padded = (w + 31) / 32 * 32;
-    int h_padded = (h + 31) / 32 * 32;
+    const int w_padded = (w + (padding - 1)) / padding * padding;
+    const int h_padded = (h + (padding - 1)) / padding * padding;
 
     const size_t in_out_tile_elemsize = opt.use_fp16_storage ? 2u : 4u;
 
