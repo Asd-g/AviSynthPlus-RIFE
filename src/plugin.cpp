@@ -147,10 +147,10 @@ struct RIFEData
 
 static void filter(const AVS_VideoFrame* src0, const AVS_VideoFrame* src1, AVS_VideoFrame* dst, const float timestep, const RIFEData* const __restrict d) noexcept
 {
-    const auto width{ avs_get_row_size(src0) / avs_component_size(&d->fi->vi) };
-    const auto height{ avs_get_height(src0) };
-    const auto src_stride{ avs_get_pitch(src0) / avs_component_size(&d->fi->vi) };
-    const auto dst_stride{ avs_get_pitch(dst) / avs_component_size(&d->fi->vi) };
+    const auto width{ avs_get_row_size_p(src0, AVS_DEFAULT_PLANE) / avs_component_size(&d->fi->vi) };
+    const auto height{ avs_get_height_p(src0, AVS_DEFAULT_PLANE) };
+    const auto src_stride{ avs_get_pitch_p(src0, AVS_DEFAULT_PLANE) / avs_component_size(&d->fi->vi) };
+    const auto dst_stride{ avs_get_pitch_p(dst, AVS_DEFAULT_PLANE) / avs_component_size(&d->fi->vi) };
     auto src0R{ reinterpret_cast<const float*>(avs_get_read_ptr_p(src0, AVS_PLANAR_R)) };
     auto src0G{ reinterpret_cast<const float*>(avs_get_read_ptr_p(src0, AVS_PLANAR_G)) };
     auto src0B{ reinterpret_cast<const float*>(avs_get_read_ptr_p(src0, AVS_PLANAR_B)) };
@@ -197,12 +197,12 @@ static AVS_FORCEINLINE void muldivRational(unsigned* num, unsigned* den, int64_t
 // from avs_core/filters/conditional/conditional_functions.cpp
 static AVS_FORCEINLINE const double get_sad_c(const AVS_VideoFrame* src, const AVS_VideoFrame* src1)
 {
-    const int c_pitch{ avs_get_pitch(src) / 4 };
-    const int t_pitch{ avs_get_pitch(src1) / 4 };
-    const int width{ avs_get_row_size(src) / 4 };
-    const int height{ avs_get_height(src) };
-    const float* c_plane{ reinterpret_cast<const float*>(avs_get_read_ptr(src)) };
-    const float* t_plane{ reinterpret_cast<const float*>(avs_get_read_ptr(src1)) };
+    const int c_pitch{ avs_get_pitch_p(src, AVS_DEFAULT_PLANE) / 4 };
+    const int t_pitch{ avs_get_pitch_p(src1, AVS_DEFAULT_PLANE) / 4 };
+    const int width{ avs_get_row_size_p(src, AVS_DEFAULT_PLANE) / 4 };
+    const int height{ avs_get_height_p(src, AVS_DEFAULT_PLANE) };
+    const float* c_plane{ reinterpret_cast<const float*>(avs_get_read_ptr_p(src, AVS_DEFAULT_PLANE)) };
+    const float* t_plane{ reinterpret_cast<const float*>(avs_get_read_ptr_p(src1, AVS_DEFAULT_PLANE)) };
 
     double accum{ 0.0 };
 
@@ -245,11 +245,11 @@ static AVS_FORCEINLINE void copy_frame(const AVS_VideoFrame* src, AVS_VideoFrame
 
 static AVS_FORCEINLINE void avg_frame(const AVS_VideoFrame* src0, const AVS_VideoFrame* src1, AVS_VideoFrame* dst)
 {
-    const int src_pitch0{ avs_get_pitch(src0) >> 2 };
-    const int src_pitch1{ avs_get_pitch(src1) >> 2 };
-    const int dst_pitch{ avs_get_pitch(dst) >> 2 };
-    const int width{ avs_get_row_size(src0) >> 2 };
-    const int height{ avs_get_height(src0) };
+    const int src_pitch0{ avs_get_pitch_p(src0, AVS_DEFAULT_PLANE) >> 2 };
+    const int src_pitch1{ avs_get_pitch_p(src1, AVS_DEFAULT_PLANE) >> 2 };
+    const int dst_pitch{ avs_get_pitch_p(dst, AVS_DEFAULT_PLANE) >> 2 };
+    const int width{ avs_get_row_size_p(src0, AVS_DEFAULT_PLANE) >> 2 };
+    const int height{ avs_get_height_p(src0, AVS_DEFAULT_PLANE) };
 
     constexpr int planes[3]{ AVS_PLANAR_R, AVS_PLANAR_G, AVS_PLANAR_B };
 
@@ -449,8 +449,8 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
 
             for (int i{ 0 }; i < d->tr; ++i)
             {
-                avs_release_frame(prev[i]);
-                avs_release_frame(next[i]);
+                avs_release_video_frame(prev[i]);
+                avs_release_video_frame(next[i]);
             }
 
             avs_release_clip(abs);
@@ -550,7 +550,7 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
                 AVS_VideoFrame* psnr{ avs_get_frame(psnr_clip, frameNum) };
                 psnrY = avs_prop_get_float(fi->env, avs_get_frame_props_ro(fi->env, psnr), "psnr_y", 0, nullptr);
 
-                avs_release_frame(psnr);
+                avs_release_video_frame(psnr);
                 avs_release_clip(psnr_clip);
             }
 
