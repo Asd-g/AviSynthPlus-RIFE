@@ -93,10 +93,15 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
     62: rife-v4.20 (ensemble=True)<br>
     63: rife-v4.21 (ensemble=False)<br>
     64: rife-v4.22 (ensemble=False)<br>
-    65: rife-v4.22-lite(ensemble=False)<br>
-    66: sudo_rife4_ensembleFalse_fastTrue<br>
-    67: sudo_rife4_ensembleTrue_fastFalse<br>
-    68: sudo_rife4_ensembleTrue_fastTrue<br>
+    65: rife-v4.22-lite (ensemble=False)<br>
+    66: rife-v4.23-beta (ensembleFalse)<br>
+    67: rife-v4.24 (ensembleFalse)<br>
+    68: rife-v4.24 (ensembleTrue)<br>
+    69: rife-v4.25 (ensembleFalse)<br>
+    70: rife-v4.25-lite (ensembleFalse)<br>
+    71: rife-v4.25-heavy_beta (ensembleFalse)<br>
+    72: rife-v4.26 (ensembleFalse)<br>
+    73: rife-v4.26-large (ensembleFalse)<br>
     Default: 5.
 
 - factor_num, factor_den<br>
