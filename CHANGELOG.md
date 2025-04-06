@@ -1,3 +1,8 @@
+##### 1.2.3:
+    Added more models. (https://github.com/styler00dollar/VapourSynth-RIFE-ncnn-Vulkan)
+    Linking to avs changed from statically to dynamically.
+    Removed boost dependency.
+
 ##### 1.2.2:
     Added more models. (https://github.com/styler00dollar/VapourSynth-RIFE-ncnn-Vulkan)
 
