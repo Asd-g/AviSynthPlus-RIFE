@@ -23,9 +23,27 @@ option(NCNN_SIMPLEVK "" OFF)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ncnn)
 
 set(sources
+    ${CMAKE_CURRENT_SOURCE_DIR}/avs_c_api_loader/avs_c_api_loader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/avs_c_api_loader/avs_c_api_loader.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/plugin.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/rife.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rife.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rife.rc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rife_flow_tta_avg.comp.hex.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rife_flow_tta_temporal_avg.comp.hex.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rife_ops.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rife_out_tta_temporal_avg.comp.hex.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rife_postproc.comp.hex.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rife_postproc_tta.comp.hex.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rife_preproc.comp.hex.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rife_preproc_tta.comp.hex.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rife_v2_flow_tta_avg.comp.hex.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rife_v2_flow_tta_temporal_avg.comp.hex.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rife_v4_timestep.comp.hex.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/warp.comp.hex.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/warp.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/warp_pack4.comp.hex.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/warp_pack8.comp.hex.h
 )
 
 if (WIN32)
@@ -37,15 +55,11 @@ endif()
 
 add_library(RIFE SHARED ${sources})
 
-target_include_directories(RIFE PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${Boost_INCLUDE_DIRS}
-)
+target_include_directories(RIFE PRIVATE ${Boost_INCLUDE_DIRS})
 
 target_link_libraries(RIFE PRIVATE
     Boost::filesystem
     ncnn
-    avisynth
 )
 
 target_compile_features(RIFE PRIVATE cxx_std_20)
