@@ -8,8 +8,6 @@ endif()
 
 project(RIFE)
 
-find_package(Boost 1.80 REQUIRED COMPONENTS filesystem)
-
 option(NCNN_INSTALL_SDK "" OFF)
 option(NCNN_PIXEL_ROTATE "" OFF)
 option(NCNN_PIXEL_AFFINE "" OFF)
@@ -55,12 +53,7 @@ endif()
 
 add_library(RIFE SHARED ${sources})
 
-target_include_directories(RIFE PRIVATE ${Boost_INCLUDE_DIRS})
-
-target_link_libraries(RIFE PRIVATE
-    Boost::filesystem
-    ncnn
-)
+target_link_libraries(RIFE PRIVATE ncnn)
 
 target_compile_features(RIFE PRIVATE cxx_std_20)
 

@@ -4,6 +4,7 @@
 
 #include <array>
 #include <atomic>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -13,10 +14,40 @@
 #include <vector>
 
 #include "../avs_c_api_loader/avs_c_api_loader.hpp"
-#include "boost/dll/runtime_symbol_info.hpp"
 #include "rife.h"
 
+#if defined(__linux__) || defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
+
 static std::atomic<int> numGPUInstances{ 0 };
+
+inline std::filesystem::path get_current_module_path()
+{
+#ifdef _WIN32
+    HMODULE hModule{};
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        reinterpret_cast<LPCWSTR>(&get_current_module_path), &hModule))
+        throw std::runtime_error("failed to get module handle (GetModuleHandleExW failed).");
+
+    wchar_t path_buf[MAX_PATH];
+    DWORD result{ GetModuleFileNameW(hModule, path_buf, MAX_PATH) };
+    if (!result)
+        throw std::runtime_error("failed to get module file name (GetModuleFileNameW failed).");
+    if (result == MAX_PATH)
+        throw std::runtime_error("max path buffer is reached.");
+
+    return std::filesystem::path(path_buf);
+#elif defined(__linux__) || defined(__APPLE__)
+    Dl_info dl_info;
+    if (!dladdr(reinterpret_cast<void*>(&get_current_module_path), &dl_info))
+        throw std::runtime_error("failed to get module info (dladdr failed).");
+    if (!dl_info.dli_fname)
+        throw std::runtime_error("failed to get module filename (dladdr returned null fname).");
+
+    return std::filesystem::path(dl_info.dli_fname);
+#endif
+}
 
 template <typename Key, typename Value1, typename Value2, std::size_t Size>
 struct Map
@@ -38,80 +69,80 @@ struct Map
 // model number, model name, model padding
 static constexpr std::array<std::tuple<int, std::string_view, int>, 74> models_num
 {
-    std::make_tuple(0, "/rife", 32),
-    std::make_tuple(1, "/rife-HD", 32),
-    std::make_tuple(2, "/rife-UHD", 32),
-    std::make_tuple(3, "/rife-anime", 32),
-    std::make_tuple(4, "/rife-v2", 32),
-    std::make_tuple(5, "/rife-v2.3", 32),
-    std::make_tuple(6, "/rife-v2.4", 32),
-    std::make_tuple(7, "/rife-v3.0", 32),
-    std::make_tuple(8, "/rife-v3.1", 32),
-    std::make_tuple(9, "/rife-v3.9_ensembleFalse_fastTrue", 32),
-    std::make_tuple(10, "/rife-v3.9_ensembleTrue_fastFalse", 32),
-    std::make_tuple(11, "/rife-v4_ensembleFalse_fastTrue", 32),
-    std::make_tuple(12, "/rife-v4_ensembleTrue_fastFalse", 32),
-    std::make_tuple(13, "/rife-v4.1_ensembleFalse_fastTrue", 32),
-    std::make_tuple(14, "/rife-v4.1_ensembleTrue_fastFalse", 32),
-    std::make_tuple(15, "/rife-v4.2_ensembleFalse_fastTrue", 32),
-    std::make_tuple(16, "/rife-v4.2_ensembleTrue_fastFalse", 32),
-    std::make_tuple(17, "/rife-v4.3_ensembleFalse_fastTrue", 32),
-    std::make_tuple(18, "/rife-v4.3_ensembleTrue_fastFalse", 32),
-    std::make_tuple(19, "/rife-v4.4_ensembleFalse_fastTrue", 32),
-    std::make_tuple(20, "/rife-v4.4_ensembleTrue_fastFalse", 32),
-    std::make_tuple(21, "/rife-v4.5_ensembleFalse", 32),
-    std::make_tuple(22, "/rife-v4.5_ensembleTrue", 32),
-    std::make_tuple(23, "/rife-v4.6_ensembleFalse", 32),
-    std::make_tuple(24, "/rife-v4.6_ensembleTrue", 32),
-    std::make_tuple(25, "/rife-v4.7_ensembleFalse", 32),
-    std::make_tuple(26, "/rife-v4.7_ensembleTrue", 32),
-    std::make_tuple(27, "/rife-v4.8_ensembleFalse", 32),
-    std::make_tuple(28, "/rife-v4.8_ensembleTrue", 32),
-    std::make_tuple(29, "/rife-v4.9_ensembleFalse", 32),
-    std::make_tuple(30, "/rife-v4.9_ensembleTrue", 32),
-    std::make_tuple(31, "/rife-v4.10_ensembleFalse", 32),
-    std::make_tuple(32, "/rife-v4.10_ensembleTrue", 32),
-    std::make_tuple(33, "/rife-v4.11_ensembleFalse", 32),
-    std::make_tuple(34, "/rife-v4.11_ensembleTrue", 32),
-    std::make_tuple(35, "/rife-v4.12_ensembleFalse", 32),
-    std::make_tuple(36, "/rife-v4.12_ensembleTrue", 32),
-    std::make_tuple(37, "/rife-v4.12_lite_ensembleFalse", 32),
-    std::make_tuple(38, "/rife-v4.12_lite_ensembleTrue", 32),
-    std::make_tuple(39, "/rife-v4.13_ensembleFalse", 32),
-    std::make_tuple(40, "/rife-v4.13_ensembleTrue", 32),
-    std::make_tuple(41, "/rife-v4.13_lite_ensembleFalse", 32),
-    std::make_tuple(42, "/rife-v4.13_lite_ensembleTrue", 32),
-    std::make_tuple(43, "/rife-v4.14_ensembleFalse", 32),
-    std::make_tuple(44, "/rife-v4.14_ensembleTrue", 32),
-    std::make_tuple(45, "/rife-v4.14_lite_ensembleFalse", 32),
-    std::make_tuple(46, "/rife-v4.14_lite_ensembleTrue", 32),
-    std::make_tuple(47, "/rife-v4.15_ensembleFalse", 32),
-    std::make_tuple(48, "/rife-v4.15_ensembleTrue", 32),
-    std::make_tuple(49, "/rife-v4.15_lite_ensembleFalse", 32),
-    std::make_tuple(50, "/rife-v4.15_lite_ensembleTrue", 32),
-    std::make_tuple(51, "/rife-v4.16_lite_ensembleFalse", 32),
-    std::make_tuple(52, "/rife-v4.16_lite_ensembleTrue", 32),
-    std::make_tuple(53, "/rife-v4.17_ensembleFalse", 32),
-    std::make_tuple(54, "/rife-v4.17_ensembleTrue", 32),
-    std::make_tuple(55, "/rife-v4.17_lite_ensembleFalse", 32),
-    std::make_tuple(56, "/rife-v4.17_lite_ensembleTrue", 32),
-    std::make_tuple(57, "/rife-v4.18_ensembleFalse", 32),
-    std::make_tuple(58, "/rife-v4.18_ensembleTrue", 32),
-    std::make_tuple(59, "/rife-v4.19_beta_ensembleFalse", 32),
-    std::make_tuple(60, "/rife-v4.19_beta_ensembleTrue", 32),
-    std::make_tuple(61, "/rife-v4.20_ensembleFalse", 32),
-    std::make_tuple(62, "/rife-v4.20_ensembleTrue", 32),
-    std::make_tuple(63, "/rife-v4.21_ensembleFalse", 32),
-    std::make_tuple(64, "/rife-v4.22_ensembleFalse", 32),
-    std::make_tuple(65, "/rife-v4.22_lite_ensembleFalse", 32),
-    std::make_tuple(66, "/rife-v4.23_beta_ensembleFalse", 32),
-    std::make_tuple(67, "/rife-v4.24_ensembleFalse", 32),
-    std::make_tuple(68, "/rife-v4.24_ensembleTrue", 32),
-    std::make_tuple(69, "/rife-v4.25_ensembleFalse", 64),
-    std::make_tuple(70, "/rife-v4.25-lite_ensembleFalse", 128),
-    std::make_tuple(71, "/rife-v4.25_heavy_beta_ensembleFalse", 64),
-    std::make_tuple(72, "/rife-v4.26_ensembleFalse", 64),
-    std::make_tuple(73, "/rife-v4.26-large_ensembleFalse", 64)
+    std::make_tuple(0, "rife", 32),
+    std::make_tuple(1, "rife-HD", 32),
+    std::make_tuple(2, "rife-UHD", 32),
+    std::make_tuple(3, "rife-anime", 32),
+    std::make_tuple(4, "rife-v2", 32),
+    std::make_tuple(5, "rife-v2.3", 32),
+    std::make_tuple(6, "rife-v2.4", 32),
+    std::make_tuple(7, "rife-v3.0", 32),
+    std::make_tuple(8, "rife-v3.1", 32),
+    std::make_tuple(9, "rife-v3.9_ensembleFalse_fastTrue", 32),
+    std::make_tuple(10, "rife-v3.9_ensembleTrue_fastFalse", 32),
+    std::make_tuple(11, "rife-v4_ensembleFalse_fastTrue", 32),
+    std::make_tuple(12, "rife-v4_ensembleTrue_fastFalse", 32),
+    std::make_tuple(13, "rife-v4.1_ensembleFalse_fastTrue", 32),
+    std::make_tuple(14, "rife-v4.1_ensembleTrue_fastFalse", 32),
+    std::make_tuple(15, "rife-v4.2_ensembleFalse_fastTrue", 32),
+    std::make_tuple(16, "rife-v4.2_ensembleTrue_fastFalse", 32),
+    std::make_tuple(17, "rife-v4.3_ensembleFalse_fastTrue", 32),
+    std::make_tuple(18, "rife-v4.3_ensembleTrue_fastFalse", 32),
+    std::make_tuple(19, "rife-v4.4_ensembleFalse_fastTrue", 32),
+    std::make_tuple(20, "rife-v4.4_ensembleTrue_fastFalse", 32),
+    std::make_tuple(21, "rife-v4.5_ensembleFalse", 32),
+    std::make_tuple(22, "rife-v4.5_ensembleTrue", 32),
+    std::make_tuple(23, "rife-v4.6_ensembleFalse", 32),
+    std::make_tuple(24, "rife-v4.6_ensembleTrue", 32),
+    std::make_tuple(25, "rife-v4.7_ensembleFalse", 32),
+    std::make_tuple(26, "rife-v4.7_ensembleTrue", 32),
+    std::make_tuple(27, "rife-v4.8_ensembleFalse", 32),
+    std::make_tuple(28, "rife-v4.8_ensembleTrue", 32),
+    std::make_tuple(29, "rife-v4.9_ensembleFalse", 32),
+    std::make_tuple(30, "rife-v4.9_ensembleTrue", 32),
+    std::make_tuple(31, "rife-v4.10_ensembleFalse", 32),
+    std::make_tuple(32, "rife-v4.10_ensembleTrue", 32),
+    std::make_tuple(33, "rife-v4.11_ensembleFalse", 32),
+    std::make_tuple(34, "rife-v4.11_ensembleTrue", 32),
+    std::make_tuple(35, "rife-v4.12_ensembleFalse", 32),
+    std::make_tuple(36, "rife-v4.12_ensembleTrue", 32),
+    std::make_tuple(37, "rife-v4.12_lite_ensembleFalse", 32),
+    std::make_tuple(38, "rife-v4.12_lite_ensembleTrue", 32),
+    std::make_tuple(39, "rife-v4.13_ensembleFalse", 32),
+    std::make_tuple(40, "rife-v4.13_ensembleTrue", 32),
+    std::make_tuple(41, "rife-v4.13_lite_ensembleFalse", 32),
+    std::make_tuple(42, "rife-v4.13_lite_ensembleTrue", 32),
+    std::make_tuple(43, "rife-v4.14_ensembleFalse", 32),
+    std::make_tuple(44, "rife-v4.14_ensembleTrue", 32),
+    std::make_tuple(45, "rife-v4.14_lite_ensembleFalse", 32),
+    std::make_tuple(46, "rife-v4.14_lite_ensembleTrue", 32),
+    std::make_tuple(47, "rife-v4.15_ensembleFalse", 32),
+    std::make_tuple(48, "rife-v4.15_ensembleTrue", 32),
+    std::make_tuple(49, "rife-v4.15_lite_ensembleFalse", 32),
+    std::make_tuple(50, "rife-v4.15_lite_ensembleTrue", 32),
+    std::make_tuple(51, "rife-v4.16_lite_ensembleFalse", 32),
+    std::make_tuple(52, "rife-v4.16_lite_ensembleTrue", 32),
+    std::make_tuple(53, "rife-v4.17_ensembleFalse", 32),
+    std::make_tuple(54, "rife-v4.17_ensembleTrue", 32),
+    std::make_tuple(55, "rife-v4.17_lite_ensembleFalse", 32),
+    std::make_tuple(56, "rife-v4.17_lite_ensembleTrue", 32),
+    std::make_tuple(57, "rife-v4.18_ensembleFalse", 32),
+    std::make_tuple(58, "rife-v4.18_ensembleTrue", 32),
+    std::make_tuple(59, "rife-v4.19_beta_ensembleFalse", 32),
+    std::make_tuple(60, "rife-v4.19_beta_ensembleTrue", 32),
+    std::make_tuple(61, "rife-v4.20_ensembleFalse", 32),
+    std::make_tuple(62, "rife-v4.20_ensembleTrue", 32),
+    std::make_tuple(63, "rife-v4.21_ensembleFalse", 32),
+    std::make_tuple(64, "rife-v4.22_ensembleFalse", 32),
+    std::make_tuple(65, "rife-v4.22_lite_ensembleFalse", 32),
+    std::make_tuple(66, "rife-v4.23_beta_ensembleFalse", 32),
+    std::make_tuple(67, "rife-v4.24_ensembleFalse", 32),
+    std::make_tuple(68, "rife-v4.24_ensembleTrue", 32),
+    std::make_tuple(69, "rife-v4.25_ensembleFalse", 64),
+    std::make_tuple(70, "rife-v4.25-lite_ensembleFalse", 128),
+    std::make_tuple(71, "rife-v4.25_heavy_beta_ensembleFalse", 64),
+    std::make_tuple(72, "rife-v4.26_ensembleFalse", 64),
+    std::make_tuple(73, "rife-v4.26-large_ensembleFalse", 64)
 };
 
 static constexpr auto map_models{ Map<int, std::string_view, int, 74>{ { models_num } } };
@@ -833,7 +864,7 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
         }
 
         if (modelPath.empty())
-            modelPath = boost::dll::this_line_location().parent_path().generic_string() + "/models" + std::string{ (map_models.at(model)).first };
+            modelPath = (get_current_module_path().parent_path() / "models" / (map_models.at(model)).first).generic_string();
 
         std::ifstream ifs{ modelPath + "/flownet.param" };
         if (!ifs.is_open())
