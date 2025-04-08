@@ -28,22 +28,22 @@ inline std::filesystem::path get_current_module_path()
     HMODULE hModule{};
     if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
         reinterpret_cast<LPCWSTR>(&get_current_module_path), &hModule))
-        throw std::runtime_error("failed to get module handle (GetModuleHandleExW failed).");
+        return std::filesystem::path();
 
     wchar_t path_buf[MAX_PATH];
     DWORD result{ GetModuleFileNameW(hModule, path_buf, MAX_PATH) };
     if (!result)
-        throw std::runtime_error("failed to get module file name (GetModuleFileNameW failed).");
+        return std::filesystem::path();
     if (result == MAX_PATH)
-        throw std::runtime_error("max path buffer is reached.");
+        return std::filesystem::path();
 
     return std::filesystem::path(path_buf);
 #elif defined(__linux__) || defined(__APPLE__)
     Dl_info dl_info;
     if (!dladdr(reinterpret_cast<void*>(&get_current_module_path), &dl_info))
-        throw std::runtime_error("failed to get module info (dladdr failed).");
+        return std::filesystem::path();
     if (!dl_info.dli_fname)
-        throw std::runtime_error("failed to get module filename (dladdr returned null fname).");
+        return std::filesystem::path();
 
     return std::filesystem::path(dl_info.dli_fname);
 #endif
