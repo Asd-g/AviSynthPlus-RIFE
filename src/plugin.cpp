@@ -7,7 +7,9 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <semaphore>
 #include <string>
 #include <utility>
@@ -21,6 +23,22 @@
 #endif
 
 static std::atomic<int> numGPUInstances{ 0 };
+static std::mutex g_global_mutex;
+static std::unique_ptr<std::counting_semaphore<1024>> g_global_semaphore;
+
+struct ModelKey {
+    std::string modelPath;
+    int gpuId;
+    bool tta;
+    bool uhd;
+    bool rife_v2;
+    bool rife_v4;
+    int padding;
+
+    auto operator<=>(const ModelKey&) const = default;
+};
+
+static std::map<ModelKey, std::weak_ptr<RIFE>> g_model_cache;
 
 inline std::filesystem::path get_current_module_path()
 {
@@ -155,8 +173,7 @@ struct RIFEData
     int64_t factor;
     int64_t factorNum;
     int64_t factorDen;
-    std::unique_ptr<RIFE> rife;
-    std::unique_ptr<std::counting_semaphore<>> semaphore;
+    std::shared_ptr<RIFE> rife;
     std::string msg;
     int oldNumFrames;
     int tr;
@@ -178,9 +195,13 @@ static void filter(const AVS_VideoFrame* src0, const AVS_VideoFrame* src1, AVS_V
     auto dstG{ reinterpret_cast<float*>(g_avs_api->avs_get_write_ptr_p(dst, AVS_PLANAR_G)) };
     auto dstB{ reinterpret_cast<float*>(g_avs_api->avs_get_write_ptr_p(dst, AVS_PLANAR_B)) };
 
-    d->semaphore->acquire();
+    if (g_global_semaphore)
+        g_global_semaphore->acquire();
+
     d->rife->process(src0R, src0G, src0B, src1R, src1G, src1B, dstR, dstG, dstB, width, height, src_stride, dst_stride, timestep);
-    d->semaphore->release();
+    
+    if (g_global_semaphore)
+        g_global_semaphore->release();
 }
 
 /* multiplies and divides a rational number, such as a frame duration, in place and reduces the result */
@@ -743,7 +764,12 @@ static void AVSC_CC free_RIFE(AVS_FilterInfo* fi)
     delete d;
 
     if (--numGPUInstances == 0)
+    {
+        std::lock_guard lock(g_global_mutex);
+        g_model_cache.clear();
+        g_global_semaphore.reset();
         ncnn::destroy_gpu_instance();
+    }
 }
 
 static int AVSC_CC RIFE_set_cache_hints(AVS_FilterInfo* fi, int cachehints, int frame_range)
@@ -769,9 +795,16 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
             g_avs_api->avs_component_size(&d->fi->vi) < 4)
             throw "only RGB 32-bit planar format supported";
 
-        if (ncnn::create_gpu_instance())
-            throw "failed to create GPU instance";
-        ++numGPUInstances;
+        {
+            std::lock_guard lock(g_global_mutex);
+            if (numGPUInstances == 0)
+            {
+                if (ncnn::create_gpu_instance())
+                    throw "failed to create GPU instance";
+            }
+
+            ++numGPUInstances;
+        }
 
         const auto model{ avs_defined(avs_array_elt(args, Model)) ? avs_as_int(avs_array_elt(args, Model)) : 5 };
         const auto factorNum{ avs_defined(avs_array_elt(args, Factor_num)) ? avs_as_int(avs_array_elt(args, Factor_num)) : 2 };
@@ -808,6 +841,15 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
             throw "invalid GPU device";
         if (auto queueCount{ ncnn::get_gpu_info(gpuId).compute_queue_count() }; gpuThread < 1 || static_cast<uint32_t>(gpuThread) > queueCount)
             throw "gpu_thread must be between 1 and " + std::to_string(queueCount) + " (inclusive)";
+
+        {
+            std::lock_guard lock(g_global_mutex);
+            if (!g_global_semaphore) {
+                g_global_semaphore = std::make_unique<std::counting_semaphore<1024>>(gpuThread);
+            }
+        }
+
+
         if (sceneChange && sceneChange1)
             throw ("both sc and sc1 cannot be  true in the same time");
         if (d->sc_threshold < 0 || d->sc_threshold > 1)
@@ -857,8 +899,8 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
             g_avs_api->avs_release_value(cl);
             g_avs_api->avs_release_clip(clip);
 
-            if (--numGPUInstances == 0)
-                ncnn::destroy_gpu_instance();
+            d->fi->user_data = reinterpret_cast<void*>(d);
+            d->fi->free_filter = free_RIFE;
 
             return v;
         }
@@ -893,21 +935,29 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
         if (modelPath.find("rife") == std::string::npos)
             throw "unknown model dir type";
 
+        const int padding = (map_models.at(model)).second;
+
         if (!rife_v4 && (d->factorNum != 2 || d->factorDen != 1))
             throw "only rife-v4 model supports custom frame rate";
 
         if (rife_v4 && tta)
             throw "rife-v4 model does not support TTA mode";
 
-        d->semaphore = std::make_unique<std::counting_semaphore<>>(gpuThread);
-        d->rife = std::make_unique<RIFE>(gpuId, tta, uhd, 1, rife_v2, rife_v4, (map_models.at(model)).second);
-        d->rife->load(modelPath);
+        ModelKey key{ modelPath, gpuId, tta, uhd, rife_v2, rife_v4, padding };
+        {
+            std::lock_guard lock(g_global_mutex);
+            auto& weak_ref = g_model_cache[key];
+            d->rife = weak_ref.lock();
+            if (!d->rife) {
+                d->rife = std::make_shared<RIFE>(gpuId, tta, uhd, 1, rife_v2, rife_v4, padding);
+                d->rife->load(modelPath);
+                weak_ref = d->rife;
+            }
+        }
 
         g_avs_api->avs_set_to_clip(&v, clip);
 
-        d->fi->user_data = reinterpret_cast<void*>(d);
         d->fi->set_cache_hints = RIFE_set_cache_hints;
-        d->fi->free_filter = free_RIFE;
 
         if (sceneChange)
         {
@@ -937,19 +987,16 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
     catch (std::string& error)
     {
         d->msg = "RIFE: " + error;
-        v = avs_new_value_error(d->msg.c_str());
-
-        if (--numGPUInstances == 0)
-            ncnn::destroy_gpu_instance();
+        v = avs_new_value_error(g_avs_api->avs_save_string(env, d->msg.c_str(), d->msg.size()));
     }
     catch (const char* error)
     {
         d->msg = "RIFE: " + std::string{ error };
-        v = avs_new_value_error(d->msg.c_str());
-
-        if (--numGPUInstances == 0)
-            ncnn::destroy_gpu_instance();
+        v = avs_new_value_error(g_avs_api->avs_save_string(env, d->msg.c_str(), d->msg.size()));
     }
+
+    d->fi->user_data = reinterpret_cast<void*>(d);
+    d->fi->free_filter = free_RIFE;
 
     g_avs_api->avs_release_clip(clip);
 
