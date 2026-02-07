@@ -1,3 +1,7 @@
+##### 1.2.4:
+    Refactored to smart pointers.
+    Removed deprecated `use_shader_pack8`
+
 ##### 1.2.3:
     Added more models. (https://github.com/styler00dollar/VapourSynth-RIFE-ncnn-Vulkan)
     Linking to avs changed from statically to dynamically.

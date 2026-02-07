@@ -1,5 +1,5 @@
 // Copyright (c) 2021-2022 HolyWu
-// Copyright (c) 2022-2025 Asd-g
+// Copyright (c) 2022-2026 Asd-g
 // SPDX-License-Identifier: MIT
 
 #include <array>
@@ -11,11 +11,12 @@
 #include <memory>
 #include <mutex>
 #include <semaphore>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "../avs_c_api_loader/avs_c_api_loader.hpp"
+#include "avs_c_api_loader.hpp"
 #include "rife.h"
 
 #if defined(__linux__) || defined(__APPLE__)
@@ -174,17 +175,18 @@ struct RIFEData
     int64_t factorNum;
     int64_t factorDen;
     std::shared_ptr<RIFE> rife;
-    std::string msg;
     int oldNumFrames;
     int tr;
 };
 
-static void filter(const AVS_VideoFrame* src0, const AVS_VideoFrame* src1, AVS_VideoFrame* dst, const float timestep, const RIFEData* const __restrict d) noexcept
+static void filter(const AVS_VideoFrame* src0, const AVS_VideoFrame* src1, AVS_VideoFrame* dst, const float timestep,
+    const RIFEData* const __restrict d) noexcept
 {
-    const auto width{ g_avs_api->avs_get_row_size_p(src0, AVS_DEFAULT_PLANE) / g_avs_api->avs_component_size(&d->fi->vi) };
+    const auto& vi{ d->fi->vi };
+    const auto width{ g_avs_api->avs_get_row_size_p(src0, AVS_DEFAULT_PLANE) / g_avs_api->avs_component_size(&vi) };
     const auto height{ g_avs_api->avs_get_height_p(src0, AVS_DEFAULT_PLANE) };
-    const auto src_stride{ g_avs_api->avs_get_pitch_p(src0, AVS_DEFAULT_PLANE) / g_avs_api->avs_component_size(&d->fi->vi) };
-    const auto dst_stride{ g_avs_api->avs_get_pitch_p(dst, AVS_DEFAULT_PLANE) / g_avs_api->avs_component_size(&d->fi->vi) };
+    const auto src_stride{ g_avs_api->avs_get_pitch_p(src0, AVS_DEFAULT_PLANE) / g_avs_api->avs_component_size(&vi) };
+    const auto dst_stride{ g_avs_api->avs_get_pitch_p(dst, AVS_DEFAULT_PLANE) / g_avs_api->avs_component_size(&vi) };
     auto src0R{ reinterpret_cast<const float*>(g_avs_api->avs_get_read_ptr_p(src0, AVS_PLANAR_R)) };
     auto src0G{ reinterpret_cast<const float*>(g_avs_api->avs_get_read_ptr_p(src0, AVS_PLANAR_G)) };
     auto src0B{ reinterpret_cast<const float*>(g_avs_api->avs_get_read_ptr_p(src0, AVS_PLANAR_B)) };
@@ -256,30 +258,14 @@ static AVS_FORCEINLINE const double get_sad_c(const AVS_VideoFrame* src, const A
     return (accum / (height * width));
 }
 
-static AVS_FORCEINLINE AVS_VideoFrame* set_error(AVS_VideoFrame* src0, AVS_VideoFrame* dst, const std::string& error_message, AVS_Value& val1, AVS_Value& val2, AVS_Value& val3, AVS_FilterInfo* fi)
-{
-    RIFEData* d{ reinterpret_cast<RIFEData*>(fi->user_data) };
-
-    g_avs_api->avs_release_value(val3);
-    g_avs_api->avs_release_value(val2);
-    g_avs_api->avs_release_value(val1);
-    g_avs_api->avs_release_video_frame(dst);
-    g_avs_api->avs_release_video_frame(src0);
-
-    d->msg = "RIFE: " + error_message;
-    fi->error = d->msg.c_str();
-
-    return nullptr;
-};
-
 static AVS_FORCEINLINE void copy_frame(const AVS_VideoFrame* src, AVS_VideoFrame* dst, AVS_ScriptEnvironment* env)
 {
     constexpr int planes[3]{ AVS_PLANAR_R, AVS_PLANAR_G, AVS_PLANAR_B };
 
     for (int i{ 0 }; i < 3; ++i)
         g_avs_api->avs_bit_blt(env, g_avs_api->avs_get_write_ptr_p(dst, planes[i]), g_avs_api->avs_get_pitch_p(dst, planes[i]),
-            g_avs_api->avs_get_read_ptr_p(src, planes[i]), g_avs_api->avs_get_pitch_p(src, planes[i]), g_avs_api->avs_get_row_size_p(src, planes[i]),
-            g_avs_api->avs_get_height_p(src, planes[i]));
+            g_avs_api->avs_get_read_ptr_p(src, planes[i]), g_avs_api->avs_get_pitch_p(src, planes[i]),
+            g_avs_api->avs_get_row_size_p(src, planes[i]), g_avs_api->avs_get_height_p(src, planes[i]));
 };
 
 static AVS_FORCEINLINE void avg_frame(const AVS_VideoFrame* src0, const AVS_VideoFrame* src1, AVS_VideoFrame* dst)
@@ -318,127 +304,116 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
     auto frameNum{ (denoise) ? n : static_cast<int>(n * d->factorDen / d->factorNum) };
     auto remainder{ n * d->factorDen % d->factorNum };
 
-    auto src0{ g_avs_api->avs_get_frame(fi->child, (denoise) ? (std::max)(frameNum - d->tr, 0) : frameNum) };
+    const auto& env{ fi->env };
+    const auto& child{ fi->child };
+    const auto& vi{ fi->vi };
+
+    const avs_helpers::avs_video_frame_ptr src0{ g_avs_api->avs_get_frame(child, (denoise) ? (std::max)(frameNum - d->tr, 0)
+        : frameNum) };
     if (!src0)
         return nullptr;
 
-    AVS_VideoFrame* dst{ g_avs_api->avs_new_video_frame_p(fi->env, &fi->vi, src0) };
+    avs_helpers::avs_video_frame_ptr dst{ g_avs_api->avs_new_video_frame_p(env, &vi, src0.get()) };
+
+    const auto set_error{ [&](std::string_view s) {
+        fi->error = g_avs_api->avs_save_string(env, s.data(), static_cast<int>(s.size()));
+
+        return nullptr;
+            } };
 
     if constexpr (!denoise)
     {
-        if (remainder != 0 && n < fi->vi.num_frames - d->factor)
+        if (remainder != 0 && n < vi.num_frames - d->factor)
         {
             bool sceneChange{};
             double psnrY{ -1.0 };
 
             if constexpr (sc || sc1)
             {
-                AVS_Value v{ avs_void };
                 AVS_Value cl;
-                g_avs_api->avs_set_to_clip(&cl, fi->child);
-                AVS_Value args_[5]{ cl, avs_new_value_bool(false), avs_new_value_string("pc709"), avs_new_value_string("left"), avs_new_value_string("spline36") };
-                AVS_Value inv{ g_avs_api->avs_invoke(fi->env, "ConvertToYUV420", avs_new_value_array(args_, 5), 0) };
-                if (avs_is_error(inv))
-                    return set_error(src0, dst, "cannot convert to YUV420. (sc)", inv, cl, v, fi);
+                g_avs_api->avs_set_to_clip(&cl, child);
+                avs_helpers::avs_value_guard cl_guard(cl);
+                AVS_Value args_[5]{ cl_guard.get(), avs_new_value_bool(false), avs_new_value_string("pc709"), avs_new_value_string("left"),
+                    avs_new_value_string("spline36")};
+                avs_helpers::avs_value_guard inv_guard{ g_avs_api->avs_invoke(env, "ConvertToYUV420", avs_new_value_array(args_, 5), 0) };
+                if (avs_is_error(inv_guard.get()))
+                    return set_error("RIFE: cannot convert to YUV420. (sc)");
 
-                AVS_Clip* abs{ g_avs_api->avs_take_clip(inv, fi->env) };
+                avs_helpers::avs_clip_ptr abs{ g_avs_api->avs_take_clip(inv_guard.get(), env)};
 
-                g_avs_api->avs_release_value(inv);
-                g_avs_api->avs_release_value(cl);
-
-                AVS_VideoFrame* abs_diff{ g_avs_api->avs_get_frame(abs, frameNum) };
-                AVS_VideoFrame* abs_diff1{ g_avs_api->avs_get_frame(abs, frameNum + 1) };
-                sceneChange = get_sad_c(abs_diff, abs_diff1) > d->sc_threshold;
-
-                g_avs_api->avs_release_video_frame(abs_diff1);
-                g_avs_api->avs_release_video_frame(abs_diff);
-                g_avs_api->avs_release_clip(abs);
+                avs_helpers::avs_video_frame_ptr abs_diff{g_avs_api->avs_get_frame(abs.get(), frameNum)};
+                avs_helpers::avs_video_frame_ptr abs_diff1{ g_avs_api->avs_get_frame(abs.get(), frameNum + 1) };
+                sceneChange = get_sad_c(abs_diff.get(), abs_diff1.get()) > d->sc_threshold;
             }
 
             if constexpr (skip)
             {
                 // resized clip
-                AVS_Value v{ avs_void };
                 AVS_Value cl;
-                g_avs_api->avs_set_to_clip(&cl, fi->child);
-                AVS_Value args_[5]{ cl, avs_new_value_int((std::min)(fi->vi.width, 512)), avs_new_value_int((std::min)(fi->vi.height, 512)), avs_new_value_float(0.0), avs_new_value_float(0.5) };
-                AVS_Value inv{ g_avs_api->avs_invoke(fi->env, "BicubicResize", avs_new_value_array(args_, 5), 0) };
-                if (avs_is_error(inv))
-                    return set_error(src0, dst, "cannot resize. (skip)", inv, cl, v, fi);
-
-                g_avs_api->avs_release_value(cl);
+                g_avs_api->avs_set_to_clip(&cl, child);
+                avs_helpers::avs_value_guard cl_guard(cl);
+                AVS_Value args_[5]{ cl_guard.get(), avs_new_value_int((std::min)(vi.width, 512)),
+                    avs_new_value_int((std::min)(vi.height, 512)), avs_new_value_float(0.0), avs_new_value_float(0.5) };
+                avs_helpers::avs_value_guard inv_guard{ g_avs_api->avs_invoke(env, "BicubicResize", avs_new_value_array(args_, 5), 0) };
+                if (avs_is_error(inv_guard.get()))
+                    return set_error("RIFE: cannot resize. (skip)");
 
                 // yuv420
-                AVS_Value args1_[5]{ inv, avs_new_value_bool(false), avs_new_value_string("pc709"), avs_new_value_string("left"), avs_new_value_string("spline36") };
-                AVS_Value inv1{ g_avs_api->avs_invoke(fi->env, "ConvertToYUV420", avs_new_value_array(args1_, 5), 0) };
-                if (avs_is_error(inv1))
-                    return set_error(src0, dst, "cannot convert to YUV420. (skip)", inv1, inv, v, fi);
-
-                g_avs_api->avs_release_value(inv);
+                AVS_Value args1_[5]{ inv_guard.get(), avs_new_value_bool(false), avs_new_value_string("pc709"),
+                    avs_new_value_string("left"), avs_new_value_string("spline36") };
+                avs_helpers::avs_value_guard inv1_guard{ g_avs_api->avs_invoke(env, "ConvertToYUV420", avs_new_value_array(args1_, 5), 0) };
+                if (avs_is_error(inv1_guard.get()))
+                    return set_error("RIFE: cannot convert to YUV420. (skip)");
 
                 // 8-bit
-                AVS_Value args2_[7]{ inv1, avs_new_value_int(8), avs_new_value_bool(false), avs_new_value_int(-1), avs_new_value_int(8), avs_new_value_bool(true), avs_new_value_bool(false) };
-                AVS_Value src_8bit{ g_avs_api->avs_invoke(fi->env, "ConvertBits", avs_new_value_array(args2_, 7), 0) };
-                if (avs_is_error(src_8bit))
-                    return set_error(src0, dst, "cannot ConvertBits. (skip)", src_8bit, inv1, v, fi);
-
-                g_avs_api->avs_release_value(inv1);
+                AVS_Value args2_[7]{ inv1_guard.get(), avs_new_value_int(8), avs_new_value_bool(false), avs_new_value_int(-1),
+                    avs_new_value_int(8), avs_new_value_bool(true), avs_new_value_bool(false) };
+                avs_helpers::avs_value_guard src_8bit_guard{ g_avs_api->avs_invoke(env, "ConvertBits", avs_new_value_array(args2_, 7), 0) };
+                if (avs_is_error(src_8bit_guard.get()))
+                    return set_error("RIFE: cannot ConvertBits. (skip)");
 
                 // add frame at the end
-                AVS_Value args3_[2]{ src_8bit, avs_new_value_int(d->oldNumFrames - 1) };
-                inv = g_avs_api->avs_invoke(fi->env, "DuplicateFrame", avs_new_value_array(args3_, 2), 0);
-                if (avs_is_error(inv))
-                    return set_error(src0, dst, "cannot DuplicateFrame. (skip)", inv, src_8bit, v, fi);
+                AVS_Value args3_[2]{ src_8bit_guard.get(), avs_new_value_int(d->oldNumFrames - 1)};
+                inv_guard.reset(g_avs_api->avs_invoke(env, "DuplicateFrame", avs_new_value_array(args3_, 2), 0));
+                if (avs_is_error(inv_guard.get()))
+                    return set_error("RIFE: cannot DuplicateFrame. (skip)");
 
                 // trim the first frme
-                AVS_Value args4_[3]{ inv, avs_new_value_int(1), avs_new_value_int(0) };
-                inv1 = g_avs_api->avs_invoke(fi->env, "Trim", avs_new_value_array(args4_, 3), 0);
-                if (avs_is_error(inv1))
-                    return set_error(src0, dst, "cannot Trim. (skip)", inv, inv1, src_8bit, fi);
-
-                g_avs_api->avs_release_value(inv);
+                AVS_Value args4_[3]{ inv_guard.get(), avs_new_value_int(1), avs_new_value_int(0) };
+                inv1_guard.reset(g_avs_api->avs_invoke(env, "Trim", avs_new_value_array(args4_, 3), 0));
+                if (avs_is_error(inv1_guard.get()))
+                    return set_error("RIFE: cannot Trim. (skip)");
 
                 // vmaf with n and n+1
-                AVS_Value args5_[3]{ src_8bit, inv1, avs_new_value_int(0) };
-                inv = g_avs_api->avs_invoke(fi->env, "VMAF2", avs_new_value_array(args5_, 3), 0);
-                if (avs_is_error(inv))
-                    return set_error(src0, dst, "VMAF2 is required. (skip)", inv, inv1, src_8bit, fi);
+                AVS_Value args5_[3]{ src_8bit_guard.get(), inv1_guard.get(), avs_new_value_int(0)};
+                inv_guard.reset(g_avs_api->avs_invoke(env, "VMAF2", avs_new_value_array(args5_, 3), 0));
+                if (avs_is_error(inv_guard.get()))
+                    return set_error("VMAF2 is required. (skip)");
 
-                AVS_Clip* psnr_clip{ g_avs_api->avs_take_clip(inv, fi->env) };
+                avs_helpers::avs_clip_ptr psnr_clip{ g_avs_api->avs_take_clip(inv_guard.get(), env)};
 
-                g_avs_api->avs_release_value(inv);
-                g_avs_api->avs_release_value(inv1);
-                g_avs_api->avs_release_value(src_8bit);
-
-                AVS_VideoFrame* psnr{ g_avs_api->avs_get_frame(psnr_clip, frameNum) };
-                psnrY = g_avs_api->avs_prop_get_float(fi->env, g_avs_api->avs_get_frame_props_ro(fi->env, psnr), "psnr_y", 0, nullptr);
-
-                g_avs_api->avs_release_video_frame(psnr);
-                g_avs_api->avs_release_clip(psnr_clip);
+                avs_helpers::avs_video_frame_ptr psnr{ g_avs_api->avs_get_frame(psnr_clip.get(), frameNum)};
+                psnrY = g_avs_api->avs_prop_get_float(env, g_avs_api->avs_get_frame_props_ro(env, psnr.get()), "psnr_y", 0, nullptr);
             }
 
             if (sceneChange || psnrY >= d->skipThreshold)
             {
                 if constexpr (sc1)
                 {
-                    AVS_VideoFrame* src1{ g_avs_api->avs_get_frame(fi->child, frameNum + 1) };
-                    avg_frame(src0, src1, dst);
-
-                    g_avs_api->avs_release_video_frame(src1);
+                    avs_helpers::avs_video_frame_ptr src1{ g_avs_api->avs_get_frame(child, frameNum + 1) };
+                    avg_frame(src0.get(), src1.get(), dst.get());
                 }
                 else
-                    copy_frame(src0, dst, fi->env);
+                    copy_frame(src0.get(), dst.get(), env);
             }
             else
             {
-                AVS_VideoFrame* src1{ g_avs_api->avs_get_frame(fi->child, frameNum + 1) };
-                filter(src0, src1, dst, static_cast<float>(remainder) / d->factorNum, d);
-
-                g_avs_api->avs_release_video_frame(src1);
+                avs_helpers::avs_video_frame_ptr src1{ g_avs_api->avs_get_frame(child, frameNum + 1) };
+                filter(src0.get(), src1.get(), dst.get(), static_cast<float>(remainder) / d->factorNum, d);
             }
         }
         else
-            copy_frame(src0, dst, fi->env);
+            copy_frame(src0.get(), dst.get(), env);
     }
     else
     {
@@ -447,89 +422,76 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
 
         if constexpr (sc || sc1)
         {
-            AVS_Value v{ avs_void };
             AVS_Value cl;
-            g_avs_api->avs_set_to_clip(&cl, fi->child);
-            AVS_Value args_[5]{ cl, avs_new_value_bool(false), avs_new_value_string("pc709"), avs_new_value_string("left"), avs_new_value_string("spline36") };
-            AVS_Value inv{ g_avs_api->avs_invoke(fi->env, "ConvertToYUV420", avs_new_value_array(args_, 5), 0) };
-            if (avs_is_error(inv))
-                return set_error(src0, dst, "cannot convert to YUV420. (sc)", inv, cl, v, fi);
+            g_avs_api->avs_set_to_clip(&cl, child);
+            avs_helpers::avs_value_guard cl_guard(cl);
+            AVS_Value args_[5]{ cl_guard.get(), avs_new_value_bool(false), avs_new_value_string("pc709"), avs_new_value_string("left"),
+                avs_new_value_string("spline36")};
+            avs_helpers::avs_value_guard inv_guard{ g_avs_api->avs_invoke(env, "ConvertToYUV420", avs_new_value_array(args_, 5), 0) };
+            if (avs_is_error(inv_guard.get()))
+                return set_error("cannot convert to YUV420. (sc)");
 
-            AVS_Clip* abs{ g_avs_api->avs_take_clip(inv, fi->env) };
+            avs_helpers::avs_clip_ptr abs{ g_avs_api->avs_take_clip(inv_guard.get(), env) };
 
-            g_avs_api->avs_release_value(inv);
-            g_avs_api->avs_release_value(cl);
-
-            std::vector<AVS_VideoFrame*> prev;
+            std::vector<avs_helpers::avs_video_frame_ptr> prev;
             prev.reserve(d->tr);
-            std::vector<AVS_VideoFrame*> next;
+            std::vector<avs_helpers::avs_video_frame_ptr> next;
             next.reserve(d->tr);
 
             for (int i{ 1 }; i <= d->tr; ++i)
             {
-                prev.emplace_back(g_avs_api->avs_get_frame(abs, (std::max)(frameNum - i, 0)));
-                next.emplace_back(g_avs_api->avs_get_frame(abs, (std::min)((std::max)(fi->vi.num_frames - 1, d->oldNumFrames - 1), frameNum + i)));
+                prev.emplace_back(g_avs_api->avs_get_frame(abs.get(), (std::max)(frameNum - i, 0)));
+                next.emplace_back(g_avs_api->avs_get_frame(abs.get(), (std::min)((std::max)(vi.num_frames - 1, d->oldNumFrames - 1),
+                    frameNum + i)));
             }
 
             for (int i{ 2 }; i <= d->tr && !sceneChange; ++i)
-                sceneChange = get_sad_c(prev[i - 1], prev[i - 2]) > d->sc_threshold;
+                sceneChange = get_sad_c(prev[i - 1].get(), prev[i - 2].get()) > d->sc_threshold;
 
             if (!sceneChange)
             {
                 for (int i{ 2 }; i <= d->tr && !sceneChange; ++i)
-                    sceneChange = get_sad_c(next[i - 2], next[i - 1]) > d->sc_threshold;
+                    sceneChange = get_sad_c(next[i - 2].get(), next[i - 1].get()) > d->sc_threshold;
             }
 
             if (!sceneChange)
             {
-                AVS_VideoFrame* abs_diff{ g_avs_api->avs_get_frame(abs, frameNum) };
+                avs_helpers::avs_video_frame_ptr abs_diff{ g_avs_api->avs_get_frame(abs.get(), frameNum)};
 
-                sceneChange = get_sad_c(abs_diff, next[0]) > d->sc_threshold || get_sad_c(prev[0], abs_diff) > d->sc_threshold;
-
-                g_avs_api->avs_release_video_frame(abs_diff);
+                sceneChange = get_sad_c(abs_diff.get(), next[0].get()) > d->sc_threshold || get_sad_c(prev[0].get(),
+                    abs_diff.get()) > d->sc_threshold;
             }
-
-            for (int i{ 0 }; i < d->tr; ++i)
-            {
-                g_avs_api->avs_release_video_frame(prev[i]);
-                g_avs_api->avs_release_video_frame(next[i]);
-            }
-
-            g_avs_api->avs_release_clip(abs);
         }
 
         if constexpr (skip)
         {
             // resized clip
-            AVS_Value v{ avs_void };
             AVS_Value cl;
-            g_avs_api->avs_set_to_clip(&cl, fi->child);
-            AVS_Value args_[5]{ cl, avs_new_value_int((std::min)(fi->vi.width, 512)), avs_new_value_int((std::min)(fi->vi.height, 512)), avs_new_value_float(0.0), avs_new_value_float(0.5) };
-            AVS_Value inv{ g_avs_api->avs_invoke(fi->env, "BicubicResize", avs_new_value_array(args_, 5), 0) };
-            if (avs_is_error(inv))
-                return set_error(src0, dst, "cannot resize. (skip)", inv, cl, v, fi);
-
-            g_avs_api->avs_release_value(cl);
+            g_avs_api->avs_set_to_clip(&cl, child);
+            avs_helpers::avs_value_guard cl_guard(cl);
+            AVS_Value args_[5]{ cl_guard.get(), avs_new_value_int((std::min)(vi.width, 512)), avs_new_value_int((std::min)(vi.height, 512)),
+                avs_new_value_float(0.0), avs_new_value_float(0.5)};
+            avs_helpers::avs_value_guard inv_guard{ g_avs_api->avs_invoke(env, "BicubicResize", avs_new_value_array(args_, 5), 0) };
+            if (avs_is_error(inv_guard.get()))
+                return set_error("RIFE: cannot resize. (skip)");
 
             // yuv420
-            AVS_Value args1_[5]{ inv, avs_new_value_bool(false), avs_new_value_string("pc709"), avs_new_value_string("left"), avs_new_value_string("spline36") };
-            AVS_Value inv1{ g_avs_api->avs_invoke(fi->env, "ConvertToYUV420", avs_new_value_array(args1_, 5), 0) };
-            if (avs_is_error(inv1))
-                return set_error(src0, dst, "cannot convert to YUV420. (skip)", inv1, inv, v, fi);
-
-            g_avs_api->avs_release_value(inv);
+            AVS_Value args1_[5]{ inv_guard.get(), avs_new_value_bool(false), avs_new_value_string("pc709"), avs_new_value_string("left"),
+                avs_new_value_string("spline36")};
+            avs_helpers::avs_value_guard inv1_guard{ g_avs_api->avs_invoke(env, "ConvertToYUV420", avs_new_value_array(args1_, 5), 0) };
+            if (avs_is_error(inv1_guard.get()))
+                return set_error("RIFE: cannot convert to YUV420. (skip)");
 
             // 8-bit
-            AVS_Value args2_[7]{ inv1, avs_new_value_int(8), avs_new_value_bool(false), avs_new_value_int(-1), avs_new_value_int(8), avs_new_value_bool(true), avs_new_value_bool(false) };
-            AVS_Value src_8bit{ g_avs_api->avs_invoke(fi->env, "ConvertBits", avs_new_value_array(args2_, 7), 0) };
-            if (avs_is_error(src_8bit))
-                return set_error(src0, dst, "cannot ConvertBits. (skip)", src_8bit, inv1, v, fi);
+            AVS_Value args2_[7]{ inv1_guard.get(), avs_new_value_int(8), avs_new_value_bool(false), avs_new_value_int(-1),
+                avs_new_value_int(8), avs_new_value_bool(true), avs_new_value_bool(false)};
+            avs_helpers::avs_value_guard src_8bit_guard{ g_avs_api->avs_invoke(env, "ConvertBits", avs_new_value_array(args2_, 7), 0) };
+            if (avs_is_error(src_8bit_guard.get()))
+                return set_error("RIFE: cannot ConvertBits. (skip)");
 
-            g_avs_api->avs_release_value(inv1);
-
-            std::vector<AVS_Value> prev;
+            std::vector<avs_helpers::avs_value_guard> prev;
             prev.reserve(d->tr);
-            std::vector<AVS_Value> next;
+            std::vector<avs_helpers::avs_value_guard> next;
             next.reserve(d->tr);
             std::vector<AVS_Value> start_frames;
             start_frames.reserve(d->tr);
@@ -542,59 +504,34 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
                 end_frames.emplace_back(avs_new_value_int(d->oldNumFrames - 1));
             }
 
-            AVS_Value* arr_start{ start_frames.data() };
-            AVS_Value* arr_end{ end_frames.data() };
-
             // next
             for (int i{ 1 }; i <= d->tr; ++i)
             {
                 // add frame at the end
-                AVS_Value args3_[2]{ src_8bit, avs_new_value_array(arr_end, i) };
-                inv = g_avs_api->avs_invoke(fi->env, "DuplicateFrame", avs_new_value_array(args3_, 2), 0);
-                if (avs_is_error(inv))
-                {
-                    for (int j{ 0 }; j < d->tr; ++j)
-                        g_avs_api->avs_release_value(next[j]);
-
-                    return set_error(src0, dst, "cannot DuplicateFrame. (skip)", inv, src_8bit, v, fi);
-                }
+                AVS_Value args3_[2]{ src_8bit_guard.get(), avs_new_value_array(end_frames.data(), i)};
+                inv_guard.reset(g_avs_api->avs_invoke(env, "DuplicateFrame", avs_new_value_array(args3_, 2), 0));
+                if (avs_is_error(inv_guard.get()))
+                    return set_error("RIFE: cannot DuplicateFrame. (skip)");
 
                 // trim frame at the beginning
-                AVS_Value args4_[3]{ inv, avs_new_value_int(i), avs_new_value_int(0) };
-                next.emplace_back(g_avs_api->avs_invoke(fi->env, "Trim", avs_new_value_array(args4_, 3), 0));
-                if (avs_is_error(next[i - 1]))
-                {
-                    for (int j{ 0 }; j < d->tr; ++j)
-                        g_avs_api->avs_release_value(next[j]);
-
-                    return set_error(src0, dst, "cannot Trim. (skip)", inv, v, src_8bit, fi);
-                }
-
-                g_avs_api->avs_release_value(inv);
+                AVS_Value args4_[3]{ inv_guard.get(), avs_new_value_int(i), avs_new_value_int(0)};
+                next.emplace_back(g_avs_api->avs_invoke(env, "Trim", avs_new_value_array(args4_, 3), 0));
+                if (avs_is_error(next[i - 1].get()))
+                    return set_error("RIFE: cannot Trim. (skip)");
             }
 
             // vmaf with n+x and n+(x+1)
             for (int i{ 1 }; i < d->tr && psnrY < d->skipThreshold; ++i)
             {
-                AVS_Value args5_[3]{ next[i - 1], next[i], avs_new_value_int(0) };
-                inv = g_avs_api->avs_invoke(fi->env, "VMAF2", avs_new_value_array(args5_, 3), 0);
-                if (avs_is_error(inv))
-                {
-                    for (int j{ 0 }; j < d->tr; ++j)
-                        g_avs_api->avs_release_value(next[j]);
+                AVS_Value args5_[3]{ next[i - 1].get(), next[i].get(), avs_new_value_int(0)};
+                inv_guard.reset(g_avs_api->avs_invoke(env, "VMAF2", avs_new_value_array(args5_, 3), 0));
+                if (avs_is_error(inv_guard.get()))
+                    return set_error("RIFE: VMAF2 is required. (skip)");
 
-                    return set_error(src0, dst, "VMAF2 is required. (skip)", inv, v, src_8bit, fi);
-                }
+                avs_helpers::avs_clip_ptr psnr_clip{ g_avs_api->avs_take_clip(inv_guard.get(), env)};
 
-                AVS_Clip* psnr_clip{ g_avs_api->avs_take_clip(inv, fi->env) };
-
-                g_avs_api->avs_release_value(inv);
-
-                AVS_VideoFrame* psnr{ g_avs_api->avs_get_frame(psnr_clip, frameNum) };
-                psnrY = g_avs_api->avs_prop_get_float(fi->env, g_avs_api->avs_get_frame_props_ro(fi->env, psnr), "psnr_y", 0, nullptr);
-
-                g_avs_api->avs_release_video_frame(psnr);
-                g_avs_api->avs_release_clip(psnr_clip);
+                avs_helpers::avs_video_frame_ptr psnr{ g_avs_api->avs_get_frame(psnr_clip.get(), frameNum)};
+                psnrY = g_avs_api->avs_prop_get_float(env, g_avs_api->avs_get_frame_props_ro(env, psnr.get()), "psnr_y", 0, nullptr);
             }
 
             if (psnrY < d->skipThreshold)
@@ -603,159 +540,91 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
                 for (int i{ 1 }; i <= d->tr; ++i)
                 {
                     // add frame at the beginning
-                    AVS_Value args6_[2]{ src_8bit, avs_new_value_array(arr_start, i) };
-                    inv = g_avs_api->avs_invoke(fi->env, "DuplicateFrame", avs_new_value_array(args6_, 2), 0);
-                    if (avs_is_error(inv))
-                    {
-                        for (int j{ 0 }; j < d->tr; ++j)
-                        {
-                            g_avs_api->avs_release_value(next[j]);
-                            g_avs_api->avs_release_value(prev[j]);
-                        }
-
-                        return set_error(src0, dst, "cannot DuplicateFrame. (skip)", inv, src_8bit, v, fi);
-                    }
+                    AVS_Value args6_[2]{ src_8bit_guard.get(), avs_new_value_array(start_frames.data(), i)};
+                    inv_guard.reset(g_avs_api->avs_invoke(env, "DuplicateFrame", avs_new_value_array(args6_, 2), 0));
+                    if (avs_is_error(inv_guard.get()))
+                        return set_error("RIFE: cannot DuplicateFrame. (skip)");
 
                     // trim the last frame
-                    AVS_Value args7_[3]{ inv, avs_new_value_int(0), avs_new_value_int(d->oldNumFrames - 1) };
-                    prev.emplace_back(g_avs_api->avs_invoke(fi->env, "Trim", avs_new_value_array(args7_, 3), 0));
-                    if (avs_is_error(prev[i - 1]))
-                    {
-                        for (int j{ 0 }; j < d->tr; ++j)
-                        {
-                            g_avs_api->avs_release_value(next[j]);
-                            g_avs_api->avs_release_value(prev[j]);
-                        }
-
-                        return set_error(src0, dst, "cannot Trim. (skip)", inv, v, src_8bit, fi);
-                    }
-
-                    g_avs_api->avs_release_value(inv);
+                    AVS_Value args7_[3]{ inv_guard.get(), avs_new_value_int(0), avs_new_value_int(d->oldNumFrames - 1)};
+                    prev.emplace_back(g_avs_api->avs_invoke(env, "Trim", avs_new_value_array(args7_, 3), 0));
+                    if (avs_is_error(prev[i - 1].get()))
+                        return set_error("RIFE: cannot Trim. (skip)");
                 }
 
                 // vmaf with n-(x+1) and n-x
                 for (int i{ 1 }; i < d->tr && psnrY < d->skipThreshold; ++i)
                 {
-                    AVS_Value args8_[3]{ prev[i], prev[i - 1], avs_new_value_int(0) };
-                    inv = g_avs_api->avs_invoke(fi->env, "VMAF2", avs_new_value_array(args8_, 3), 0);
-                    if (avs_is_error(inv))
-                    {
-                        for (int j{ 0 }; j < d->tr; ++j)
-                        {
-                            g_avs_api->avs_release_value(next[j]);
-                            g_avs_api->avs_release_value(prev[j]);
-                        }
+                    AVS_Value args8_[3]{ prev[i].get(), prev[i - 1].get(), avs_new_value_int(0)};
+                    inv_guard.reset(g_avs_api->avs_invoke(env, "VMAF2", avs_new_value_array(args8_, 3), 0));
+                    if (avs_is_error(inv_guard.get()))
+                        return set_error("RIFE: VMAF2 is required. (skip)");
 
-                        return set_error(src0, dst, "VMAF2 is required. (skip)", inv, v, src_8bit, fi);
-                    }
+                    avs_helpers::avs_clip_ptr psnr_clip{ g_avs_api->avs_take_clip(inv_guard.get(), env)};
 
-                    AVS_Clip* psnr_clip{ g_avs_api->avs_take_clip(inv, fi->env) };
-
-                    g_avs_api->avs_release_value(inv);
-
-                    AVS_VideoFrame* psnr{ g_avs_api->avs_get_frame(psnr_clip, frameNum) };
-                    psnrY = g_avs_api->avs_prop_get_float(fi->env, g_avs_api->avs_get_frame_props_ro(fi->env, psnr), "psnr_y", 0, nullptr);
-
-                    g_avs_api->avs_release_video_frame(psnr);
-                    g_avs_api->avs_release_clip(psnr_clip);
+                    avs_helpers::avs_video_frame_ptr psnr{ g_avs_api->avs_get_frame(psnr_clip.get(), frameNum)};
+                    psnrY = g_avs_api->avs_prop_get_float(env, g_avs_api->avs_get_frame_props_ro(env, psnr.get()), "psnr_y", 0, nullptr);
                 }
             }
             if (psnrY < d->skipThreshold)
             {
                 // vmaf with n and n+1
-                AVS_Value args5_[3]{ src_8bit, next[0], avs_new_value_int(0) };
-                inv = g_avs_api->avs_invoke(fi->env, "VMAF2", avs_new_value_array(args5_, 3), 0);
-                if (avs_is_error(inv))
-                {
-                    for (int j{ 0 }; j < d->tr; ++j)
-                    {
-                        g_avs_api->avs_release_value(next[j]);
-                        g_avs_api->avs_release_value(prev[j]);
-                    }
+                AVS_Value args5_[3]{ src_8bit_guard.get(), next[0].get(), avs_new_value_int(0)};
+                inv_guard.reset(g_avs_api->avs_invoke(env, "VMAF2", avs_new_value_array(args5_, 3), 0));
+                if (avs_is_error(inv_guard.get()))
+                    return set_error("RIFE: VMAF2 is required. (skip)");
 
-                    return set_error(src0, dst, "VMAF2 is required. (skip)", inv, v, src_8bit, fi);
-                }
+                avs_helpers::avs_clip_ptr psnr_clip{ g_avs_api->avs_take_clip(inv_guard.get(), env)};
 
-                AVS_Clip* psnr_clip{ g_avs_api->avs_take_clip(inv, fi->env) };
-
-                g_avs_api->avs_release_value(inv);
-
-                AVS_VideoFrame* psnr{ g_avs_api->avs_get_frame(psnr_clip, frameNum) };
-                psnrY = g_avs_api->avs_prop_get_float(fi->env, g_avs_api->avs_get_frame_props_ro(fi->env, psnr), "psnr_y", 0, nullptr);
-
-                g_avs_api->avs_release_video_frame(psnr);
-                g_avs_api->avs_release_clip(psnr_clip);
+                avs_helpers::avs_video_frame_ptr psnr{ g_avs_api->avs_get_frame(psnr_clip.get(), frameNum)};
+                psnrY = g_avs_api->avs_prop_get_float(env, g_avs_api->avs_get_frame_props_ro(env, psnr.get()), "psnr_y", 0, nullptr);
             }
             if (psnrY < d->skipThreshold)
             {
                 // vmaf with n-1 and n
-                AVS_Value args8_[3]{ prev[0], src_8bit, avs_new_value_int(0) };
-                inv = g_avs_api->avs_invoke(fi->env, "VMAF2", avs_new_value_array(args8_, 3), 0);
-                if (avs_is_error(inv))
-                {
-                    for (int j{ 0 }; j < d->tr; ++j)
-                    {
-                        g_avs_api->avs_release_value(next[j]);
-                        g_avs_api->avs_release_value(prev[j]);
-                    }
+                AVS_Value args8_[3]{ prev[0].get(), src_8bit_guard.get(), avs_new_value_int(0)};
+                inv_guard.reset(g_avs_api->avs_invoke(env, "VMAF2", avs_new_value_array(args8_, 3), 0));
+                if (avs_is_error(inv_guard.get()))
+                    return set_error("RIFE: VMAF2 is required. (skip)");
 
-                    return set_error(src0, dst, "VMAF2 is required. (skip)", inv, v, src_8bit, fi);
-                }
+                avs_helpers::avs_clip_ptr psnr_clip{ g_avs_api->avs_take_clip(inv_guard.get(), env)};
 
-                AVS_Clip* psnr_clip{ g_avs_api->avs_take_clip(inv, fi->env) };
-
-                g_avs_api->avs_release_value(inv);
-
-                AVS_VideoFrame* psnr{ g_avs_api->avs_get_frame(psnr_clip, frameNum) };
-                psnrY = g_avs_api->avs_prop_get_float(fi->env, g_avs_api->avs_get_frame_props_ro(fi->env, psnr), "psnr_y", 0, nullptr);
-
-                g_avs_api->avs_release_video_frame(psnr);
-                g_avs_api->avs_release_clip(psnr_clip);
+                avs_helpers::avs_video_frame_ptr psnr{ g_avs_api->avs_get_frame(psnr_clip.get(), frameNum)};
+                psnrY = g_avs_api->avs_prop_get_float(env, g_avs_api->avs_get_frame_props_ro(env, psnr.get()), "psnr_y", 0, nullptr);
             }
-
-            for (int j{ 0 }; j < d->tr; ++j)
-            {
-                g_avs_api->avs_release_value(next[j]);
-                g_avs_api->avs_release_value(prev[j]);
-            }
-            g_avs_api->avs_release_value(src_8bit);
         }
 
         if (sceneChange || psnrY >= d->skipThreshold)
         {
             if constexpr (sc1)
             {
-                AVS_VideoFrame* src1{ g_avs_api->avs_get_frame(fi->child, (std::min)(frameNum + d->tr, (std::max)(fi->vi.num_frames - 1, d->oldNumFrames - 1))) };
-                avg_frame(src0, src1, dst);
-
-                g_avs_api->avs_release_video_frame(src1);
+                avs_helpers::avs_video_frame_ptr src1{ g_avs_api->avs_get_frame(child, (std::min)(frameNum + d->tr,
+                    (std::max)(vi.num_frames - 1, d->oldNumFrames - 1))) };
+                avg_frame(src0.get(), src1.get(), dst.get());
             }
             else
-                copy_frame(g_avs_api->avs_get_frame(fi->child, frameNum), dst, fi->env);
+                copy_frame(g_avs_api->avs_get_frame(child, frameNum), dst.get(), env);
         }
         else
         {
-            AVS_VideoFrame* src1{ g_avs_api->avs_get_frame(fi->child, (std::min)(frameNum + d->tr, (std::max)(fi->vi.num_frames - 1, d->oldNumFrames - 1))) };
-            filter(src0, src1, dst, 0.5f, d);
-
-            g_avs_api->avs_release_video_frame(src1);
+            avs_helpers::avs_video_frame_ptr src1{ g_avs_api->avs_get_frame(child, (std::min)(frameNum + d->tr,
+                (std::max)(vi.num_frames - 1, d->oldNumFrames - 1))) };
+            filter(src0.get(), src1.get(), dst.get(), 0.5f, d);
         }
     }
 
-    auto props{ g_avs_api->avs_get_frame_props_rw(fi->env, dst) };
+    auto props{ g_avs_api->avs_get_frame_props_rw(env, dst.get()) };
     int errNum, errDen;
-    unsigned durationNum{ static_cast<unsigned>(g_avs_api->avs_prop_get_int(fi->env, props, "_DurationNum", 0, &errNum)) };
-    unsigned durationDen{ static_cast<unsigned>(g_avs_api->avs_prop_get_int(fi->env, props, "_DurationDen", 0, &errDen)) };
+    unsigned durationNum{ static_cast<unsigned>(g_avs_api->avs_prop_get_int(env, props, "_DurationNum", 0, &errNum)) };
+    unsigned durationDen{ static_cast<unsigned>(g_avs_api->avs_prop_get_int(env, props, "_DurationDen", 0, &errDen)) };
     if (!errNum && !errDen)
     {
         muldivRational(&durationNum, &durationDen, d->factorDen, d->factorNum);
-        g_avs_api->avs_prop_set_int(fi->env, props, "_DurationNum", durationNum, 0);
-        g_avs_api->avs_prop_set_int(fi->env, props, "_DurationDen", durationDen, 0);
+        g_avs_api->avs_prop_set_int(env, props, "_DurationNum", durationNum, 0);
+        g_avs_api->avs_prop_set_int(env, props, "_DurationDen", durationDen, 0);
     }
 
-    g_avs_api->avs_release_video_frame(src0);
-
-    return dst;
+    return dst.release();
 }
 
 static void AVSC_CC free_RIFE(AVS_FilterInfo* fi)
@@ -779,20 +648,23 @@ static int AVSC_CC RIFE_set_cache_hints(AVS_FilterInfo* fi, int cachehints, int 
 
 static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args, void* param)
 {
-    enum { Clip, Model, Factor_num, Factor_den, Fps_num, Fps_den, Model_path, Gpu_id, Gpu_thread, Tta, Uhd, Sc, Sc1, Sc_threshold, Skip, Skip_threshold, List_gpu, Denoise, Denoise_tr };
+    enum { Clip, Model, Factor_num, Factor_den, Fps_num, Fps_den, Model_path, Gpu_id, Gpu_thread, Tta, Uhd, Sc, Sc1, Sc_threshold, Skip,
+        Skip_threshold, List_gpu, Denoise, Denoise_tr, };
 
-    auto d{ new RIFEData() };
+    auto d{ std::make_unique<RIFEData>() };
+    auto& fi{ d->fi };
+    AVS_Value v{};
 
-    AVS_Clip* clip{ g_avs_api->avs_new_c_filter(env, &d->fi, avs_array_elt(args, Clip), 1) };
-    AVS_Value v{ avs_void };
+    avs_helpers::avs_clip_ptr clip{ g_avs_api->avs_new_c_filter(env, &fi, avs_array_elt(args, Clip), 1) };
+    auto& vi{ fi->vi };
 
-    const int denoise{ avs_defined(avs_array_elt(args, Denoise)) ? avs_as_bool(avs_array_elt(args, Denoise)) : 0 };
+    const int denoise{ avs_helpers::get_opt_arg<bool>(env, args, Denoise).value_or(0) };
 
     try
     {
-        if (!avs_is_planar(&d->fi->vi) ||
-            !avs_is_rgb(&d->fi->vi) ||
-            g_avs_api->avs_component_size(&d->fi->vi) < 4)
+        if (!avs_is_planar(&vi) ||
+            !avs_is_rgb(&vi) ||
+            g_avs_api->avs_component_size(&vi) < 4)
             throw "only RGB 32-bit planar format supported";
 
         {
@@ -806,41 +678,41 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
             ++numGPUInstances;
         }
 
-        const auto model{ avs_defined(avs_array_elt(args, Model)) ? avs_as_int(avs_array_elt(args, Model)) : 5 };
-        const auto factorNum{ avs_defined(avs_array_elt(args, Factor_num)) ? avs_as_int(avs_array_elt(args, Factor_num)) : 2 };
-        const auto factorDen{ avs_defined(avs_array_elt(args, Factor_den)) ? avs_as_int(avs_array_elt(args, Factor_den)) : 1 };
-        unsigned fpsNum{ static_cast<unsigned>(avs_defined(avs_array_elt(args, Fps_num)) ? avs_as_int(avs_array_elt(args, Fps_num)) : 0) };
-        if (avs_defined(avs_array_elt(args, Fps_num)) && fpsNum < 1)
+        const auto model{ avs_helpers::get_opt_arg<int>(env, args, Model).value_or(5) };
+        const auto factorNum{ avs_helpers::get_opt_arg<int>(env, args, Factor_num).value_or(2) };
+        const auto factorDen{ avs_helpers::get_opt_arg<int>(env, args, Factor_den).value_or(1) };
+        const auto fpsNum{ avs_helpers::get_opt_arg<int>(env, args, Fps_num) };
+        if (fpsNum && *fpsNum < 1)
             throw "fps_num must be at least 1";
 
-        unsigned fpsDen{ static_cast<unsigned>(avs_defined(avs_array_elt(args, Fps_den)) ? avs_as_int(avs_array_elt(args, Fps_den)) : 0) };
-        if (avs_defined(avs_array_elt(args, Fps_den)) && fpsDen < 1)
+        const auto fpsDen{ avs_helpers::get_opt_arg<int>(env, args, Fps_den) };
+        if (fpsDen && *fpsDen < 1)
             throw "fps_den must be at least 1";
 
-        std::string modelPath{ avs_defined(avs_array_elt(args, Model_path)) ? avs_as_string(avs_array_elt(args, Model_path)) : "" };
-        const auto gpuId{ avs_defined(avs_array_elt(args, Gpu_id)) ? avs_as_int(avs_array_elt(args, Gpu_id)) : ncnn::get_default_gpu_index() };
-        const auto gpuThread{ avs_defined(avs_array_elt(args, Gpu_thread)) ? avs_as_int(avs_array_elt(args, Gpu_thread)) : 2 };
-        const auto tta{ avs_defined(avs_array_elt(args, Tta)) ? avs_as_bool(avs_array_elt(args, Tta)) : 0 };
-        const auto uhd{ avs_defined(avs_array_elt(args, Uhd)) ? avs_as_bool(avs_array_elt(args, Uhd)) : 0 };
-        const int sceneChange{ avs_defined(avs_array_elt(args, Sc)) ? avs_as_bool(avs_array_elt(args, Sc)) : 0 };
-        const int sceneChange1{ avs_defined(avs_array_elt(args, Sc1)) ? avs_as_bool(avs_array_elt(args, Sc1)) : 0 };
-        d->sc_threshold = avs_defined(avs_array_elt(args, Sc_threshold)) ? avs_as_float(avs_array_elt(args, Sc_threshold)) : 0.12;
-        const int skip{ avs_defined(avs_array_elt(args, Skip)) ? avs_as_bool(avs_array_elt(args, Skip)) : 0 };
-        d->skipThreshold = avs_defined(avs_array_elt(args, Skip_threshold)) ? avs_as_float(avs_array_elt(args, Skip_threshold)) : 60.0;
-        d->tr = avs_defined(avs_array_elt(args, Denoise_tr)) ? avs_as_float(avs_array_elt(args, Denoise_tr)) : 1;
+        std::string modelPath{ avs_helpers::get_opt_arg<std::string>(env, args, Model_path).value_or("") };
+        const auto gpuId{ avs_helpers::get_opt_arg<int>(env, args, Gpu_id).value_or(ncnn::get_default_gpu_index()) };
+        const auto gpuThread{ avs_helpers::get_opt_arg<int>(env, args, Gpu_thread).value_or(2) };
+        const auto tta{ avs_helpers::get_opt_arg<bool>(env, args, Tta).value_or(0) };
+        const auto uhd{ avs_helpers::get_opt_arg<bool>(env, args, Uhd).value_or(0) };
+        const int sceneChange{ avs_helpers::get_opt_arg<bool>(env, args, Sc).value_or(0) };
+        const int sceneChange1{ avs_helpers::get_opt_arg<bool>(env, args, Sc1).value_or(0) };
+        d->sc_threshold = avs_helpers::get_opt_arg<float>(env, args, Sc_threshold).value_or(0.12);
+        const int skip{ avs_helpers::get_opt_arg<bool>(env, args, Skip).value_or(0) };
+        d->skipThreshold = avs_helpers::get_opt_arg<float>(env, args, Skip_threshold).value_or(60.0);
+        d->tr = avs_helpers::get_opt_arg<int>(env, args, Denoise_tr).value_or(1);
 
         if (model < 0 || model > models_num.size() - 1)
-            throw "model must be between 0 and " + std::to_string(models_num.size() - 1) + " (inclusive)";
+            throw std::format("model must be between 0 and {} (inclusive)", models_num.size() - 1);
         if (factorNum < 1)
             throw "factor_num must be at least 1";
         if (factorDen < 1)
             throw "factor_den must be at least 1";
-        if (fpsNum && fpsDen && !(d->fi->vi.fps_numerator && d->fi->vi.fps_denominator))
+        if (fpsNum && fpsDen && !(vi.fps_numerator && vi.fps_denominator))
             throw "clip does not have a valid frame rate and hence fps_num and fps_den cannot be used";
         if (gpuId < 0 || gpuId >= ncnn::get_gpu_count())
             throw "invalid GPU device";
         if (auto queueCount{ ncnn::get_gpu_info(gpuId).compute_queue_count() }; gpuThread < 1 || static_cast<uint32_t>(gpuThread) > queueCount)
-            throw "gpu_thread must be between 1 and " + std::to_string(queueCount) + " (inclusive)";
+            throw std::format("gpu_thread must be between 1 and {} (inclusive)", queueCount);
 
         {
             std::lock_guard lock(g_global_mutex);
@@ -861,9 +733,12 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
 
         if (fpsNum && fpsDen)
         {
-            muldivRational(&fpsNum, &fpsDen, d->fi->vi.fps_denominator, d->fi->vi.fps_numerator);
-            d->factorNum = fpsNum;
-            d->factorDen = fpsDen;
+            auto fps_n{ static_cast<unsigned>(*fpsNum) };
+            auto fps_d{ static_cast<unsigned>(*fpsDen) };
+
+            muldivRational(&fps_n, &fps_d, vi.fps_denominator, vi.fps_numerator);
+            d->factorNum = fps_n;
+            d->factorDen = fps_d;
         }
         else
         {
@@ -872,35 +747,34 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
         }
 
         if (!denoise)
-            muldivRational(&d->fi->vi.fps_numerator, &d->fi->vi.fps_denominator, d->factorNum, d->factorDen);
+            muldivRational(&vi.fps_numerator, &vi.fps_denominator, d->factorNum, d->factorDen);
 
-        if (d->fi->vi.num_frames < 2)
+        if (vi.num_frames < 2)
             throw "clip's number of frames must be at least 2";
-        if (d->fi->vi.num_frames / d->factorDen > INT_MAX / d->factorNum)
+        if (vi.num_frames / d->factorDen > INT_MAX / d->factorNum)
             throw "resulting clip is too long";
 
-        d->oldNumFrames = d->fi->vi.num_frames;
+        d->oldNumFrames = vi.num_frames;
 
         if (!denoise)
-            d->fi->vi.num_frames = static_cast<int>(d->fi->vi.num_frames * d->factorNum / d->factorDen);
+            vi.num_frames = static_cast<int>(vi.num_frames * d->factorNum / d->factorDen);
 
         d->factor = d->factorNum / d->factorDen;
 
-        if (avs_defined(avs_array_elt(args, List_gpu)) ? avs_as_bool(avs_array_elt(args, List_gpu)) : 0)
+        if (const auto s{ avs_helpers::get_opt_arg<bool>(env, args, List_gpu) }; s && *s)
         {
+            std::string msg;
             for (auto i{ 0 }; i < ncnn::get_gpu_count(); ++i)
-                d->msg += std::to_string(i) + ": " + ncnn::get_gpu_info(i).device_name() + "\n";
+                msg += std::to_string(i) + ": " + ncnn::get_gpu_info(i).device_name() + "\n";
 
             AVS_Value cl;
-            g_avs_api->avs_set_to_clip(&cl, clip);
-            AVS_Value args_[2]{ cl, avs_new_value_string(d->msg.c_str()) };
+            g_avs_api->avs_set_to_clip(&cl, clip.get());
+            avs_helpers::avs_value_guard cl_guard(cl);
+            AVS_Value args_[2]{ cl_guard.get(), avs_new_value_string(msg.c_str())};
             v = g_avs_api->avs_invoke(env, "Text", avs_new_value_array(args_, 2), 0);
 
-            g_avs_api->avs_release_value(cl);
-            g_avs_api->avs_release_clip(clip);
-
-            d->fi->user_data = reinterpret_cast<void*>(d);
-            d->fi->free_filter = free_RIFE;
+            fi->user_data = reinterpret_cast<void*>(d.release());
+            fi->free_filter = free_RIFE;
 
             return v;
         }
@@ -913,29 +787,13 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
             throw "failed to load model";
         ifs.close();
 
-        const bool rife_v2{ [&]()
-        {
-            if (modelPath.find("rife-v2") != std::string::npos)
-                return true;
-            else if (modelPath.find("rife-v3") != std::string::npos)
-                return true;
-            else
-                return false;
-        }() };
-        const bool rife_v4{ [&]()
-        {
-            if (modelPath.find("rife-v4") != std::string::npos)
-                return true;
-            else if (modelPath.find("rife4") != std::string::npos)
-                return true;
-            else
-                return false;
-        }() };
+        const bool rife_v2{ (modelPath.find("rife-v2") != std::string::npos) || (modelPath.find("rife-v3") != std::string::npos) };
+        const bool rife_v4{ (modelPath.find("rife-v4") != std::string::npos) || (modelPath.find("rife4") != std::string::npos) };
 
         if (modelPath.find("rife") == std::string::npos)
             throw "unknown model dir type";
 
-        const int padding = (map_models.at(model)).second;
+        const int padding{ (map_models.at(model)).second };
 
         if (!rife_v4 && (d->factorNum != 2 || d->factorDen != 1))
             throw "only rife-v4 model supports custom frame rate";
@@ -946,7 +804,7 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
         ModelKey key{ modelPath, gpuId, tta, uhd, rife_v2, rife_v4, padding };
         {
             std::lock_guard lock(g_global_mutex);
-            auto& weak_ref = g_model_cache[key];
+            auto& weak_ref{ g_model_cache[key] };
             d->rife = weak_ref.lock();
             if (!d->rife) {
                 d->rife = std::make_shared<RIFE>(gpuId, tta, uhd, 1, rife_v2, rife_v4, padding);
@@ -955,50 +813,47 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
             }
         }
 
-        g_avs_api->avs_set_to_clip(&v, clip);
-
-        d->fi->set_cache_hints = RIFE_set_cache_hints;
-
         if (sceneChange)
         {
             if (skip)
-                d->fi->get_frame = (denoise) ? RIFE_get_frame<true, false, true, true> : RIFE_get_frame<true, false, true, false>;
+                fi->get_frame = (denoise) ? RIFE_get_frame<true, false, true, true> : RIFE_get_frame<true, false, true, false>;
             else
-                d->fi->get_frame = (denoise) ? RIFE_get_frame<true, false, false, true> : RIFE_get_frame<true, false, false, false>;
+                fi->get_frame = (denoise) ? RIFE_get_frame<true, false, false, true> : RIFE_get_frame<true, false, false, false>;
         }
         else
         {
             if (sceneChange1)
             {
                 if (skip)
-                    d->fi->get_frame = (denoise) ? RIFE_get_frame<false, true, true, true> : RIFE_get_frame<false, true, true, false>;
+                    fi->get_frame = (denoise) ? RIFE_get_frame<false, true, true, true> : RIFE_get_frame<false, true, true, false>;
                 else
-                    d->fi->get_frame = (denoise) ? RIFE_get_frame<false, true, false, true> : RIFE_get_frame<false, true, false, false>;
+                    fi->get_frame = (denoise) ? RIFE_get_frame<false, true, false, true> : RIFE_get_frame<false, true, false, false>;
             }
             else
             {
                 if (skip)
-                    d->fi->get_frame = (denoise) ? RIFE_get_frame<false, false, true, true> : RIFE_get_frame<false, false, true, false>;
+                    fi->get_frame = (denoise) ? RIFE_get_frame<false, false, true, true> : RIFE_get_frame<false, false, true, false>;
                 else
-                    d->fi->get_frame = (denoise) ? RIFE_get_frame<false, false, false, true> : RIFE_get_frame<false, false, false, false>;
+                    fi->get_frame = (denoise) ? RIFE_get_frame<false, false, false, true> : RIFE_get_frame<false, false, false, false>;
             }
         }
+
+        g_avs_api->avs_set_to_clip(&v, clip.get());
     }
     catch (std::string& error)
     {
-        d->msg = "RIFE: " + error;
-        v = avs_new_value_error(g_avs_api->avs_save_string(env, d->msg.c_str(), d->msg.size()));
+        std::string msg{ "RIFE: " + error };
+        v = avs_new_value_error(g_avs_api->avs_save_string(env, msg.c_str(), msg.size()));
     }
     catch (const char* error)
     {
-        d->msg = "RIFE: " + std::string{ error };
-        v = avs_new_value_error(g_avs_api->avs_save_string(env, d->msg.c_str(), d->msg.size()));
+        std::string msg{ std::format("RIFE: {}", error) };
+        v = avs_new_value_error(g_avs_api->avs_save_string(env, msg.c_str(), msg.size()));
     }
 
-    d->fi->user_data = reinterpret_cast<void*>(d);
-    d->fi->free_filter = free_RIFE;
-
-    g_avs_api->avs_release_clip(clip);
+    fi->user_data = reinterpret_cast<void*>(d.release());
+    fi->set_cache_hints = RIFE_set_cache_hints;
+    fi->free_filter = free_RIFE;
 
     return v;
 }
@@ -1007,7 +862,7 @@ const char* AVSC_CC avisynth_c_plugin_init(AVS_ScriptEnvironment* env)
 {
     static constexpr int REQUIRED_INTERFACE_VERSION{ 9 };
     static constexpr int REQUIRED_BUGFIX_VERSION{ 2 };
-    static constexpr std::initializer_list<std::string_view> required_functions
+    static constexpr std::string_view required_functions_storage[]
     {
         "avs_get_frame",
         "avs_get_pitch_p",
@@ -1031,6 +886,7 @@ const char* AVSC_CC avisynth_c_plugin_init(AVS_ScriptEnvironment* env)
         "avs_new_video_frame_p",
         "avs_get_frame_props_ro"
     };
+    static constexpr std::span<const std::string_view> required_functions{ required_functions_storage };
 
     if (!avisynth_c_api_loader::get_api(env, REQUIRED_INTERFACE_VERSION, REQUIRED_BUGFIX_VERSION, required_functions))
     {
@@ -1038,6 +894,26 @@ const char* AVSC_CC avisynth_c_plugin_init(AVS_ScriptEnvironment* env)
         return avisynth_c_api_loader::get_last_error();
     }
 
-    g_avs_api->avs_add_function(env, "RIFE", "c[model]i[factor_num]i[factor_den]i[fps_num]i[fps_den]i[model_path]s[gpu_id]i[gpu_thread]i[tta]b[uhd]b[sc]b[sc1]b[sc_threshold]f[skip]b[skip_threshold]f[list_gpu]b[denoise]b[denoise_tr]i", Create_RIFE, 0);
+    g_avs_api->avs_add_function(env, "RIFE",        
+        "c"
+        "[model]i"
+        "[factor_num]i"
+        "[factor_den]i"
+        "[fps_num]i"
+        "[fps_den]i"
+        "[model_path]s"
+        "[gpu_id]i"
+        "[gpu_thread]i"
+        "[tta]b"
+        "[uhd]b"
+        "[sc]b"
+        "[sc1]b"
+        "[sc_threshold]f"
+        "[skip]b"
+        "[skip_threshold]f"
+        "[list_gpu]b"
+        "[denoise]b"
+        "[denoise_tr]i",
+        Create_RIFE, 0);
     return "Real-Time Intermediate Flow Estimation for Video Frame Interpolation";
 }

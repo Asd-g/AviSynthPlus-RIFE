@@ -20,5 +20,4 @@ public:
 private:
     ncnn::Pipeline* pipeline_warp;
     ncnn::Pipeline* pipeline_warp_pack4;
-    ncnn::Pipeline* pipeline_warp_pack8;
 };

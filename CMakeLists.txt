@@ -20,9 +20,11 @@ option(NCNN_BUILD_EXAMPLES "" OFF)
 option(NCNN_SIMPLEVK "" OFF)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ncnn)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/avs_c_api_loader/cmake")
+find_package(AvisynthPlus REQUIRED)
+add_subdirectory(avs_c_api_loader)
+
 set(sources
-    ${CMAKE_CURRENT_SOURCE_DIR}/avs_c_api_loader/avs_c_api_loader.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/avs_c_api_loader/avs_c_api_loader.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/plugin.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/rife.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/rife.h
@@ -53,7 +55,10 @@ endif()
 
 add_library(RIFE SHARED ${sources})
 
-target_link_libraries(RIFE PRIVATE ncnn)
+target_link_libraries(RIFE PRIVATE
+    avs_c_api_loader::avs_c_api_loader
+    ncnn
+)
 
 target_compile_features(RIFE PRIVATE cxx_std_20)
 
