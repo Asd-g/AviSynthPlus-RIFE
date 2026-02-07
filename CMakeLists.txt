@@ -43,7 +43,6 @@ set(sources
     ${CMAKE_CURRENT_SOURCE_DIR}/src/warp.comp.hex.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/warp.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/warp_pack4.comp.hex.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/warp_pack8.comp.hex.h
 )
 
 if (WIN32)
