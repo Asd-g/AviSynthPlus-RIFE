@@ -1,6 +1,7 @@
 ## Description
 
-Real-Time Intermediate Flow Estimation for Video Frame Interpolation, based on [rife-ncnn-vulkan](https://github.com/nihui/rife-ncnn-vulkan).
+Real-Time Intermediate Flow Estimation for Video Frame Interpolation, based on
+[rife-ncnn-vulkan](https://github.com/nihui/rife-ncnn-vulkan).
 
 This is [a port of the VapourSynth plugin RIFE](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-RIFE-ncnn-Vulkan).
 
@@ -8,21 +9,25 @@ This is [a port of the VapourSynth plugin RIFE](https://github.com/HomeOfVapourS
 
 - Vulkan device
 
-- AviSynth+ r3688 or later ([1](https://github.com/AviSynth/AviSynthPlus/releases) / [2](https://forum.doom9.org/showthread.php?t=181351) / [3](https://gitlab.com/uvz/AviSynthPlus-Builds))
+- AviSynth+ r3688 or later ([1](https://github.com/AviSynth/AviSynthPlus/releases) / [2](https://forum.doom9.org/showthread.php?t=181351) /
+ [3](https://gitlab.com/uvz/AviSynthPlus-Builds))
 
 - Microsoft VisualC++ Redistributable Package 2022 (can be downloaded from [here](https://github.com/abbodi1406/vcredist/releases))
 
 ### Usage:
 
 ```
-RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num", int "fps_den", string "model_path", int "gpu_id", int "gpu_thread", bool "tta", bool "uhd", bool "sc", bool "sc1", float "sc_threshold", bool "skip", float "skip_threshold", bool "list_gpu", bool "denoise", int "denoise_tr")
+RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num", int "fps_den", string "model_path", int "gpu_id",
+ int "gpu_thread", bool "tta", bool "uhd", bool "sc", bool "sc1", float "sc_threshold", bool "skip", float "skip_threshold",
+  bool "list_gpu", bool "denoise", int "denoise_tr", int "matrixc_in", bool "full_range")
 ```
 
 ### Parameters:
 
 - input<br>
     A clip to process.<br>
-    It must be in RGB 32-bit planar format.
+    It must be in planar format.<br>
+    The output format is `RGBPS`.
 
 - model<br>
     Model to use.<br>
@@ -177,6 +182,18 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
     For example, `denoise_tr=1` means frames `n-1` and `n+1` are used.<br>
     Must be greater than 0.<br>
     Default: 1.
+
+- matrix_in<br>
+    Matrix for YUV->RGB conversion.<br>
+    Mandatory for YUV input.<br>
+    0: 601<br>
+    1: 709<br>
+    2: 2020<br>
+    Default: not specified.
+
+- full_range<br>
+    Input pixel_range.<br>
+    Default: True for 32-bit or RGB input.
 
 ### Building:
 

@@ -10,20 +10,27 @@
 class RIFE
 {
 public:
-    RIFE(int gpuid, bool tta_mode, bool uhd_mode, int num_threads, bool rife_v2, bool rife_v4, int padding);
+    RIFE(int gpuid, bool tta_mode, bool uhd_mode, int num_threads, bool rife_v2, bool rife_v4, int padding, bool is_yuv,
+        int chroma_subsampling, int matrix_in, int bytes_per_comp, bool full_range, int bit_depth);
     ~RIFE();
 
     int load(const std::string& modeldir);
 
-    int process(const float* src0R, const float* src0G, const float* src0B,
-        const float* src1R, const float* src1G, const float* src1B,
-        float* dstR, float* dstG, float* dstB,
-        const int w, const int h, const ptrdiff_t src_stride, const ptrdiff_t dst_stride, const float timestep) const;
+    int process(const uint8_t* const src0_p[3], const uint8_t* const src1_p[3], float* dstR, float* dstG, float* dstB, const int w,
+        const int h, const ptrdiff_t stride0[3], const ptrdiff_t stride1[3], const ptrdiff_t dst_stride, const float timestep) const;
 
-    int process_v4(const float* src0R, const float* src0G, const float* src0B,
-        const float* src1R, const float* src1G, const float* src1B,
-        float* dstR, float* dstG, float* dstB,
-        const int w, const int h, const ptrdiff_t src_stride, const ptrdiff_t dst_stride, const float timestep) const;
+    int process_v4(const uint8_t* const src0_p[3], const uint8_t* const src1_p[3], float* dstR, float* dstG, float* dstB, const int w,
+        const int h, const ptrdiff_t stride0[3], const ptrdiff_t stride1[3], const ptrdiff_t dst_stride, const float timestep) const;
+
+    int process_copy(const uint8_t* const src_p[3], float* dstR, float* dstG, float* dstB,
+        const int w, const int h, const ptrdiff_t stride[3], const ptrdiff_t dst_stride) const;
+
+    bool is_yuv;
+    int chroma_subsampling; // 0=4:4:4, 1=4:2:0, 2=4:2:2
+    int matrix_in; // 0=601, 1=709, 2=2020
+    int bytes_per_comp; // 1=8b, 2=16b, 4=32f
+    bool full_range; // 0=limited, 1=full
+    int bit_depth;
 
 private:
     ncnn::VulkanDevice* vkdev;
