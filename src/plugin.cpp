@@ -195,7 +195,7 @@ static void filter(const AVS_VideoFrame* src0, const AVS_VideoFrame* src1, AVS_V
     const auto& vi{ d->fi->vi };
     const auto width{ g_avs_api->avs_get_row_size_p(src0, AVS_DEFAULT_PLANE) / d->src_comp_size };
     const auto height{ g_avs_api->avs_get_height_p(src0, AVS_DEFAULT_PLANE) };
-    const ptrdiff_t dst_stride{ g_avs_api->avs_get_pitch_p(dst, AVS_DEFAULT_PLANE) / sizeof(float) };
+    const size_t dst_stride{ g_avs_api->avs_get_pitch_p(dst, AVS_DEFAULT_PLANE) / sizeof(float) };
 
     auto [src0_stride, src1_stride, src0_p, src1_p] {[&]() {
         struct result
