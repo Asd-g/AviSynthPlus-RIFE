@@ -1,3 +1,7 @@
+##### 1.3.0:
+    Added support for all planar formats as input.
+    Added parameters cache, denoise_bf, denoise_ff.
+
 ##### 1.2.4:
     Refactored to smart pointers.
     Removed deprecated `use_shader_pack8`

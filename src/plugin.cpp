@@ -263,9 +263,9 @@ static AVS_FORCEINLINE void muldivRational(unsigned* num, unsigned* den, int64_t
 // from avs_core/filters/conditional/conditional_functions.cpp
 static AVS_FORCEINLINE const double get_sad_c(const AVS_VideoFrame* src, const AVS_VideoFrame* src1)
 {
-    const int c_pitch{ g_avs_api->avs_get_pitch_p(src, AVS_DEFAULT_PLANE) / 4 };
-    const int t_pitch{ g_avs_api->avs_get_pitch_p(src1, AVS_DEFAULT_PLANE) / 4 };
-    const int width{ g_avs_api->avs_get_row_size_p(src, AVS_DEFAULT_PLANE) / 4 };
+    const size_t c_pitch{ g_avs_api->avs_get_pitch_p(src, AVS_DEFAULT_PLANE) / sizeof(float) };
+    const size_t t_pitch{ g_avs_api->avs_get_pitch_p(src1, AVS_DEFAULT_PLANE) / sizeof(float) };
+    const size_t width{ g_avs_api->avs_get_row_size_p(src, AVS_DEFAULT_PLANE) / sizeof(float) };
     const int height{ g_avs_api->avs_get_height_p(src, AVS_DEFAULT_PLANE) };
     const float* c_plane{ reinterpret_cast<const float*>(g_avs_api->avs_get_read_ptr_p(src, AVS_DEFAULT_PLANE)) };
     const float* t_plane{ reinterpret_cast<const float*>(g_avs_api->avs_get_read_ptr_p(src1, AVS_DEFAULT_PLANE)) };
@@ -324,8 +324,10 @@ static AVS_FORCEINLINE void copy_frame(const AVS_VideoFrame* src, AVS_VideoFrame
 static AVS_FORCEINLINE void avg_frame(const AVS_VideoFrame* src0, const AVS_VideoFrame* src1, AVS_VideoFrame* dst,
     AVS_ScriptEnvironment* env, const RIFEData* const __restrict d)
 {
-    avs_helpers::avs_video_frame_ptr tmp0{ g_avs_api->avs_new_video_frame_p(env, &d->fi->vi, dst) };
-    avs_helpers::avs_video_frame_ptr tmp1{ g_avs_api->avs_new_video_frame_p(env, &d->fi->vi, dst) };
+    const auto& vi{ d->fi->vi };
+
+    avs_helpers::avs_video_frame_ptr tmp0{ g_avs_api->avs_new_video_frame_p(env, &vi, dst) };
+    avs_helpers::avs_video_frame_ptr tmp1{ g_avs_api->avs_new_video_frame_p(env, &vi, dst) };
 
     copy_frame(src0, tmp0.get(), d);
     copy_frame(src1, tmp1.get(), d);
@@ -397,6 +399,14 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
                 avs_helpers::avs_value_guard inv_guard{ g_avs_api->avs_invoke(env, "ConvertToYUV420", avs_new_value_array(args_, 5), 0) };
                 if (avs_is_error(inv_guard.get()))
                     return set_error("RIFE: cannot convert to YUV420. (sc)");
+
+                if (d->src_comp_size != 4)
+                {
+                    AVS_Value args1_[2]{ inv_guard.get(), avs_new_value_int(32) };
+                    inv_guard.reset(g_avs_api->avs_invoke(env, "ConvertBits", avs_new_value_array(args1_, 2), 0));
+                    if (avs_is_error(inv_guard.get()))
+                        return set_error("RIFE: cannot convert to YUV420 to 32-bit. (sc)");
+                }
 
                 avs_helpers::avs_clip_ptr abs{ g_avs_api->avs_take_clip(inv_guard.get(), env) };
 
@@ -490,6 +500,14 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
             avs_helpers::avs_value_guard inv_guard{ g_avs_api->avs_invoke(env, "ConvertToYUV420", avs_new_value_array(args_, 5), 0) };
             if (avs_is_error(inv_guard.get()))
                 return set_error("cannot convert to YUV420. (sc)");
+
+            if (d->src_comp_size != 4)
+            {
+                AVS_Value args1_[2]{ inv_guard.get(), avs_new_value_int(32) };
+                inv_guard.reset(g_avs_api->avs_invoke(env, "ConvertBits", avs_new_value_array(args1_, 2), 0));
+                if (avs_is_error(inv_guard.get()))
+                    return set_error("RIFE: cannot convert to YUV420 to 32-bit. (sc)");
+            }
 
             avs_helpers::avs_clip_ptr abs{ g_avs_api->avs_take_clip(inv_guard.get(), env) };
 
