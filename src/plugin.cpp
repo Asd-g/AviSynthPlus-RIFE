@@ -35,6 +35,12 @@ struct ModelKey {
     bool rife_v2;
     bool rife_v4;
     int padding;
+    bool is_yuv;
+    int chroma_subsampling;
+    int matrix_in;
+    int component_size;
+    bool full_range;
+    int bits_per_component;
 
     auto operator<=>(const ModelKey&) const = default;
 };
@@ -702,7 +708,7 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
 {
     enum {
         Clip, Model, Factor_num, Factor_den, Fps_num, Fps_den, Model_path, Gpu_id, Gpu_thread, Tta, Uhd, Sc, Sc1, Sc_threshold, Skip,
-        Skip_threshold, List_gpu, Denoise, Denoise_tr, Matrinx_in, Full_range
+        Skip_threshold, List_gpu, Denoise, Denoise_tr, Matrinx_in, Full_range, Cache
     };
 
     auto d{ std::make_unique<RIFEData>() };
@@ -870,19 +876,33 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
         if (rife_v4 && tta)
             throw "rife-v4 model does not support TTA mode";
 
-        const int chroma_subsampling{ !is_rgb ? !g_avs_api->avs_is_420(&vi) ? g_avs_api->avs_is_422(&vi) ? 2 : 0 : 1 : 0 };
+        const bool is_yuv{ !is_rgb };
+        const int chroma_subsampling{ is_yuv ? !g_avs_api->avs_is_420(&vi) ? g_avs_api->avs_is_422(&vi) ? 2 : 0 : 1 : 0 };
+        const int m_in{ matrix_in ? *matrix_in : 1 };
+        const int comp_size{ g_avs_api->avs_component_size(&vi) };
+        const int bits{ g_avs_api->avs_bits_per_component(&vi) };
 
-        ModelKey key{ modelPath, gpuId, tta, uhd, rife_v2, rife_v4, padding };
+        if (const bool use_cache{ avs_helpers::get_opt_arg<bool>(env, args, Cache).value_or(true) })
         {
-            std::lock_guard lock(g_global_mutex);
-            auto& weak_ref{ g_model_cache[key] };
-            d->rife = weak_ref.lock();
-            if (!d->rife) {
-                d->rife = std::make_shared<RIFE>(gpuId, tta, uhd, 1, rife_v2, rife_v4, padding, !is_rgb, chroma_subsampling,
-                    matrix_in ? *matrix_in : 1, g_avs_api->avs_component_size(&vi), full_range, g_avs_api->avs_bits_per_component(&vi));
-                d->rife->load(modelPath);
-                weak_ref = d->rife;
+            ModelKey key{ modelPath, gpuId, tta, uhd, rife_v2, rife_v4, padding, is_yuv, chroma_subsampling, m_in, comp_size,
+                static_cast<bool>(full_range), bits };
+            {
+                std::lock_guard lock(g_global_mutex);
+                auto& weak_ref{ g_model_cache[key] };
+                d->rife = weak_ref.lock();
+                if (!d->rife) {
+                    d->rife = std::make_shared<RIFE>(gpuId, tta, uhd, 1, rife_v2, rife_v4, padding, is_yuv, chroma_subsampling, m_in,
+                        comp_size, full_range, bits);
+                    d->rife->load(modelPath);
+                    weak_ref = d->rife;
+                }
             }
+        }
+        else
+        {
+            d->rife = std::make_shared<RIFE>(gpuId, tta, uhd, 1, rife_v2, rife_v4, padding, is_yuv, chroma_subsampling, m_in,
+                comp_size, full_range, bits);
+            d->rife->load(modelPath);
         }
 
         if (sceneChange)
@@ -990,7 +1010,8 @@ const char* AVSC_CC avisynth_c_plugin_init(AVS_ScriptEnvironment* env)
         "[denoise]b"
         "[denoise_tr]i"
         "[matrix_in]i"
-        "[full_range]b",
+        "[full_range]b"
+        "[cache]b",
         Create_RIFE, 0);
     return "Real-Time Intermediate Flow Estimation for Video Frame Interpolation";
 }

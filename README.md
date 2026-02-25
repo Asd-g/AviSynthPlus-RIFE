@@ -19,7 +19,7 @@ This is [a port of the VapourSynth plugin RIFE](https://github.com/HomeOfVapourS
 ```
 RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num", int "fps_den", string "model_path", int "gpu_id",
  int "gpu_thread", bool "tta", bool "uhd", bool "sc", bool "sc1", float "sc_threshold", bool "skip", float "skip_threshold",
-  bool "list_gpu", bool "denoise", int "denoise_tr", int "matrixc_in", bool "full_range")
+  bool "list_gpu", bool "denoise", int "denoise_tr", int "matrixc_in", bool "full_range", bool "cache")
 ```
 
 ### Parameters:
@@ -194,6 +194,13 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
 - full_range<br>
     Input pixel_range.<br>
     Default: True for 32-bit or RGB input.
+
+- cache<br>
+    Whether to share the RIFE model instance between multiple filter calls.<br>
+    When enabled, instances using the same model, GPU ID, and video format (bit depth, color space, etc.) will share the same memory,
+    reducing VRAM usage.<br>
+    If set to False, a private instance of the model will be loaded into VRAM for that specific call.<br>
+    Default: True.
 
 ### Building:
 
