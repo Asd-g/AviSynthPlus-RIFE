@@ -182,7 +182,9 @@ struct RIFEData
     int64_t factorDen;
     std::shared_ptr<RIFE> rife;
     int oldNumFrames;
-    int tr;
+    int bf;
+    int ff;
+    float denoise_timestep;
     std::array<int, 3> planes;
     int src_comp_size;
 };
@@ -366,8 +368,7 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
     const auto& child{ fi->child };
     const auto& vi{ fi->vi };
 
-    const avs_helpers::avs_video_frame_ptr src0{ g_avs_api->avs_get_frame(child, (denoise) ? (std::max)(frameNum - d->tr, 0)
-        : frameNum) };
+    const avs_helpers::avs_video_frame_ptr src0{ g_avs_api->avs_get_frame(child, (denoise) ? (std::max)(frameNum - d->bf, 0) : frameNum) };
     if (!src0)
         return nullptr;
 
@@ -477,6 +478,7 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
     {
         bool sceneChange{};
         double psnrY{ -1.0 };
+        const int search_tr{ (std::max)(d->bf, d->ff) };
 
         if constexpr (sc || sc1)
         {
@@ -492,23 +494,23 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
             avs_helpers::avs_clip_ptr abs{ g_avs_api->avs_take_clip(inv_guard.get(), env) };
 
             std::vector<avs_helpers::avs_video_frame_ptr> prev;
-            prev.reserve(d->tr);
+            prev.reserve(search_tr);
             std::vector<avs_helpers::avs_video_frame_ptr> next;
-            next.reserve(d->tr);
+            next.reserve(search_tr);
 
-            for (int i{ 1 }; i <= d->tr; ++i)
+            for (int i{ 1 }; i <= search_tr; ++i)
             {
                 prev.emplace_back(g_avs_api->avs_get_frame(abs.get(), (std::max)(frameNum - i, 0)));
                 next.emplace_back(g_avs_api->avs_get_frame(abs.get(), (std::min)((std::max)(vi.num_frames - 1, d->oldNumFrames - 1),
                     frameNum + i)));
             }
 
-            for (int i{ 2 }; i <= d->tr && !sceneChange; ++i)
+            for (int i{ 2 }; i <= search_tr && !sceneChange; ++i)
                 sceneChange = get_sad_c(prev[i - 1].get(), prev[i - 2].get()) > d->sc_threshold;
 
             if (!sceneChange)
             {
-                for (int i{ 2 }; i <= d->tr && !sceneChange; ++i)
+                for (int i{ 2 }; i <= search_tr && !sceneChange; ++i)
                     sceneChange = get_sad_c(next[i - 2].get(), next[i - 1].get()) > d->sc_threshold;
             }
 
@@ -548,22 +550,22 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
                 return set_error("RIFE: cannot ConvertBits. (skip)");
 
             std::vector<avs_helpers::avs_value_guard> prev;
-            prev.reserve(d->tr);
+            prev.reserve(search_tr);
             std::vector<avs_helpers::avs_value_guard> next;
-            next.reserve(d->tr);
+            next.reserve(search_tr);
             std::vector<AVS_Value> start_frames;
-            start_frames.reserve(d->tr);
+            start_frames.reserve(search_tr);
             std::vector<AVS_Value> end_frames;
-            end_frames.reserve(d->tr);
+            end_frames.reserve(search_tr);
 
-            for (int i{ 0 }; i < d->tr; ++i)
+            for (int i{ 0 }; i < search_tr; ++i)
             {
                 start_frames.emplace_back(avs_new_value_int(0));
                 end_frames.emplace_back(avs_new_value_int(d->oldNumFrames - 1));
             }
 
             // next
-            for (int i{ 1 }; i <= d->tr; ++i)
+            for (int i{ 1 }; i <= search_tr; ++i)
             {
                 // add frame at the end
                 AVS_Value args3_[2]{ src_8bit_guard.get(), avs_new_value_array(end_frames.data(), i) };
@@ -579,7 +581,7 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
             }
 
             // vmaf with n+x and n+(x+1)
-            for (int i{ 1 }; i < d->tr && psnrY < d->skipThreshold; ++i)
+            for (int i{ 1 }; i < search_tr && psnrY < d->skipThreshold; ++i)
             {
                 AVS_Value args5_[3]{ next[i - 1].get(), next[i].get(), avs_new_value_int(0) };
                 inv_guard.reset(g_avs_api->avs_invoke(env, "VMAF2", avs_new_value_array(args5_, 3), 0));
@@ -595,7 +597,7 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
             if (psnrY < d->skipThreshold)
             {
                 // prev
-                for (int i{ 1 }; i <= d->tr; ++i)
+                for (int i{ 1 }; i <= search_tr; ++i)
                 {
                     // add frame at the beginning
                     AVS_Value args6_[2]{ src_8bit_guard.get(), avs_new_value_array(start_frames.data(), i) };
@@ -611,7 +613,7 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
                 }
 
                 // vmaf with n-(x+1) and n-x
-                for (int i{ 1 }; i < d->tr && psnrY < d->skipThreshold; ++i)
+                for (int i{ 1 }; i < search_tr && psnrY < d->skipThreshold; ++i)
                 {
                     AVS_Value args8_[3]{ prev[i].get(), prev[i - 1].get(), avs_new_value_int(0) };
                     inv_guard.reset(g_avs_api->avs_invoke(env, "VMAF2", avs_new_value_array(args8_, 3), 0));
@@ -656,7 +658,7 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
         {
             if constexpr (sc1)
             {
-                avs_helpers::avs_video_frame_ptr src1{ g_avs_api->avs_get_frame(child, (std::min)(frameNum + d->tr,
+                avs_helpers::avs_video_frame_ptr src1{ g_avs_api->avs_get_frame(child, (std::min)(frameNum + d->ff,
                     (std::max)(vi.num_frames - 1, d->oldNumFrames - 1))) };
                 avg_frame(src0.get(), src1.get(), dst.get(), env, d);
             }
@@ -665,9 +667,9 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
         }
         else
         {
-            avs_helpers::avs_video_frame_ptr src1{ g_avs_api->avs_get_frame(child, (std::min)(frameNum + d->tr,
+            avs_helpers::avs_video_frame_ptr src1{ g_avs_api->avs_get_frame(child, (std::min)(frameNum + d->ff,
                 (std::max)(vi.num_frames - 1, d->oldNumFrames - 1))) };
-            filter(src0.get(), src1.get(), dst.get(), 0.5f, d);
+            filter(src0.get(), src1.get(), dst.get(), d->denoise_timestep, d);
         }
     }
 
@@ -708,7 +710,7 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
 {
     enum {
         Clip, Model, Factor_num, Factor_den, Fps_num, Fps_den, Model_path, Gpu_id, Gpu_thread, Tta, Uhd, Sc, Sc1, Sc_threshold, Skip,
-        Skip_threshold, List_gpu, Denoise, Denoise_tr, Matrinx_in, Full_range, Cache
+        Skip_threshold, List_gpu, Denoise, Denoise_tr, Matrinx_in, Full_range, Cache, Denoise_bf, Denoise_ff
     };
 
     auto d{ std::make_unique<RIFEData>() };
@@ -780,7 +782,9 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
         const int skip{ avs_helpers::get_opt_arg<bool>(env, args, Skip).value_or(0) };
         d->skipThreshold = avs_helpers::get_opt_arg<float>(env, args, Skip_threshold).value_or(60.0);
 
-        d->tr = avs_helpers::get_opt_arg<int>(env, args, Denoise_tr).value_or(1);
+        const int tr{ avs_helpers::get_opt_arg<int>(env, args, Denoise_tr).value_or(1) };
+        d->bf = avs_helpers::get_opt_arg<int>(env, args, Denoise_bf).value_or(tr);
+        d->ff = avs_helpers::get_opt_arg<int>(env, args, Denoise_ff).value_or(tr);
 
         const auto matrix_in{ avs_helpers::get_opt_arg<int>(env, args, Matrinx_in) };
         const bool is_rgb{ static_cast<bool>(avs_is_rgb(&vi)) };
@@ -814,12 +818,18 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
             throw "sc_threshold must be between 0.0 and 1.0 (inclusive)";
         if (d->skipThreshold < 0 || d->skipThreshold > 60)
             throw "skip_threshold must be between 0.0 and 60.0 (inclusive)";
-        if (d->tr < 1)
+        if (tr < 1)
             throw "denoise_tr must be greater than or equal to 1.";
         if (!is_rgb && !matrix_in)
             throw "matrix_in must be specified for YUV formats.";
         if (matrix_in && (*matrix_in < 0 || *matrix_in > 2))
             throw "matrix_in must be between 0 and 2.";
+        if (d->bf < 1 )
+            throw "denoise_bf must be at least 1";
+        if (d->ff < 1)
+            throw "denoise_ff must be at least 1";
+
+        d->denoise_timestep = static_cast<float>(d->bf) / (static_cast<float>(d->bf) + d->ff);
 
         d->planes = is_rgb ? decltype(d->planes){AVS_PLANAR_R, AVS_PLANAR_G, AVS_PLANAR_B}
         : decltype(d->planes){AVS_PLANAR_Y, AVS_PLANAR_U, AVS_PLANAR_V};
@@ -1011,7 +1021,9 @@ const char* AVSC_CC avisynth_c_plugin_init(AVS_ScriptEnvironment* env)
         "[denoise_tr]i"
         "[matrix_in]i"
         "[full_range]b"
-        "[cache]b",
+        "[cache]b"
+        "[denoise_bf]i"
+        "[denoise_ff]i",
         Create_RIFE, 0);
     return "Real-Time Intermediate Flow Estimation for Video Frame Interpolation";
 }

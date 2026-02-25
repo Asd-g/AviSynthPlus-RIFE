@@ -202,6 +202,18 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
     If set to False, a private instance of the model will be loaded into VRAM for that specific call.<br>
     Default: True.
 
+- denoise_bf<br>
+    Backward frame radius for denoise=true.<br>
+    Allows asymmetric reference frame selection.<br>
+    Must be greater than 0.<br>
+    Default: Value of denoise_tr.
+
+- denoise_ff<br>
+    Forward frame radius for denoise=true.<br>
+    Allows asymmetric reference frame selection.<br>
+    Must be greater than 0.<br>
+    Default: Value of denoise_tr.
+
 ### Building:
 
 - Requires `Vulkan SDK`.
