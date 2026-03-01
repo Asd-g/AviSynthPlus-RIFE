@@ -39,7 +39,7 @@ RIFE::RIFE(int gpuid, bool _tta_mode, bool _uhd_mode, int _num_threads, bool _ri
     rife_v2_slice_flow{},
     tta_temporal_mode{}
 {
-    vkdev = gpuid == -1 ? 0 : ncnn::get_gpu_device(gpuid);
+    vkdev = ncnn::get_gpu_device(gpuid);
 }
 
 RIFE::~RIFE()
@@ -123,9 +123,9 @@ int RIFE::load(const std::string& modeldir)
 {
     ncnn::Option opt;
     opt.num_threads = num_threads;
-    opt.use_vulkan_compute = vkdev ? true : false;
-    opt.use_fp16_packed = vkdev ? true : false;
-    opt.use_fp16_storage = vkdev ? true : false;
+    opt.use_vulkan_compute = true;
+    opt.use_fp16_packed = true;
+    opt.use_fp16_storage = true;
     opt.use_fp16_arithmetic = false;
     opt.use_int8_storage = false;
 
@@ -149,7 +149,6 @@ int RIFE::load(const std::string& modeldir)
     }
 
     // initialize preprocess and postprocess pipeline
-    if (vkdev)
     {
         std::vector<ncnn::vk_specialization_type> preproc_specializations(6);
         preproc_specializations[0].i = is_yuv;
@@ -206,7 +205,7 @@ int RIFE::load(const std::string& modeldir)
         }
     }
 
-    if (vkdev && tta_mode)
+    if (tta_mode)
     {
         std::vector<uint32_t> spirv;
         static ncnn::Mutex lock;
@@ -228,7 +227,7 @@ int RIFE::load(const std::string& modeldir)
         rife_flow_tta_avg->create(spirv.data(), spirv.size() * 4, specializations);
     }
 
-    if (vkdev && tta_temporal_mode)
+    if (tta_temporal_mode)
     {
         std::vector<uint32_t> spirv;
         static ncnn::Mutex lock;
@@ -250,7 +249,7 @@ int RIFE::load(const std::string& modeldir)
         rife_flow_tta_temporal_avg->create(spirv.data(), spirv.size() * 4, specializations);
     }
 
-    if (vkdev && tta_temporal_mode)
+    if (tta_temporal_mode)
     {
         std::vector<uint32_t> spirv;
         static ncnn::Mutex lock;
@@ -328,22 +327,19 @@ int RIFE::load(const std::string& modeldir)
 
     if (rife_v4)
     {
-        if (vkdev)
+        std::vector<uint32_t> spirv;
+        static ncnn::Mutex lock;
         {
-            std::vector<uint32_t> spirv;
-            static ncnn::Mutex lock;
-            {
-                ncnn::MutexLockGuard guard(lock);
-                if (spirv.empty())
-                    compile_spirv_module(rife_v4_timestep_comp_data, sizeof(rife_v4_timestep_comp_data), opt, spirv);
-            }
-
-            std::vector<ncnn::vk_specialization_type> specializations;
-
-            rife_v4_timestep = new ncnn::Pipeline(vkdev);
-            rife_v4_timestep->set_optimal_local_size_xyz(8, 8, 1);
-            rife_v4_timestep->create(spirv.data(), spirv.size() * 4, specializations);
+            ncnn::MutexLockGuard guard(lock);
+            if (spirv.empty())
+                compile_spirv_module(rife_v4_timestep_comp_data, sizeof(rife_v4_timestep_comp_data), opt, spirv);
         }
+        
+        std::vector<ncnn::vk_specialization_type> specializations;
+        
+        rife_v4_timestep = new ncnn::Pipeline(vkdev);
+        rife_v4_timestep->set_optimal_local_size_xyz(8, 8, 1);
+        rife_v4_timestep->create(spirv.data(), spirv.size() * 4, specializations);
     }
 
     return 0;

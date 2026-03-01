@@ -1,3 +1,6 @@
+##### 1.3.1:
+    Removed redundant ncnn CPU code.
+
 ##### 1.3.0:
     Added support for all planar formats as input.
     Added parameters cache, denoise_bf, denoise_ff.
