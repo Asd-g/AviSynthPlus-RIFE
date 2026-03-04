@@ -743,10 +743,12 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
         for (auto i{ 0 }; i < ncnn::get_gpu_count(); ++i)
             msg += std::to_string(i) + ": " + ncnn::get_gpu_info(i).device_name() + "\n";
 
+        ++numGPUInstances;
+
         AVS_Value cl;
         g_avs_api->avs_set_to_clip(&cl, clip.get());
         avs_helpers::avs_value_guard cl_guard(cl);
-        AVS_Value args_[2]{ cl_guard.get(), avs_new_value_string(msg.c_str()) };
+        AVS_Value args_[2]{ cl_guard.get(), avs_new_value_string(g_avs_api->avs_save_string(env, msg.c_str(), msg.size())) };
         v = g_avs_api->avs_invoke(env, "Text", avs_new_value_array(args_, 2), 0);
 
         fi->user_data = reinterpret_cast<void*>(d.release());

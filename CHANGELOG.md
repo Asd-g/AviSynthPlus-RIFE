@@ -1,3 +1,6 @@
+##### 1.3.2:
+    Fixed `list_gpu`.
+
 ##### 1.3.1:
     Removed redundant ncnn CPU code.
 
