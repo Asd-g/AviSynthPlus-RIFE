@@ -1021,12 +1021,12 @@ static AVS_Value AVSC_CC Create_RIFE_ReplaceFrames(AVS_ScriptEnvironment* env, A
                 return set_error(std::to_string(n_parameter) + " + " + std::to_string(x_parameter) + " must be less than "
                     + std::to_string(num_frames - 1));
 
-            previous_n_x = std::make_pair(n_parameter, x_parameter);
             if (i)
             {
                 if (n_parameter < previous_n_x.first + previous_n_x.second)
                     return set_error("'N' must do not overlap previous ('N' + 'X')");
             }
+            previous_n_x = std::make_pair(n_parameter, x_parameter);
 
             std::array<AVS_Value, 3> trim_args{ input_clip, avs_new_value_int(previous_n_x.first), avs_new_value_int(-1) };
             AVS_Value trim_clip{ g_avs_api->avs_invoke(env, "Trim", avs_new_value_array(trim_args.data(), 3), 0) }; // Trim(clip, N-1, -1).
