@@ -1014,8 +1014,8 @@ static AVS_Value AVSC_CC Create_RIFE_ReplaceFrames(AVS_ScriptEnvironment* env, A
         for (int i{ 0 }; i < n_num; ++i)
         {
             const int n_parameter{ avs_as_int(*(avs_as_array(avs_array_elt(args, N)) + i)) };
-            if (n_parameter < 0 || n_parameter >= num_frames)
-                return set_error("'N' must be between 0 and " + std::to_string(num_frames - 1) + " inclusive");
+            if (n_parameter < 1 || n_parameter >= num_frames)
+                return set_error("'N' must be between 1 and " + std::to_string(num_frames - 1) + " inclusive");
             const int x_parameter{ avs_as_int(*(avs_as_array(avs_array_elt(args, X)) + i)) };
             if (x_parameter <= 0)
                 return set_error("'X' must be greater than 0");
@@ -1030,7 +1030,7 @@ static AVS_Value AVSC_CC Create_RIFE_ReplaceFrames(AVS_ScriptEnvironment* env, A
             }
             previous_n_x = std::make_pair(n_parameter, x_parameter);
 
-            std::array<AVS_Value, 3> trim_args{ input_clip, avs_new_value_int(previous_n_x.first), avs_new_value_int(-1) };
+            std::array<AVS_Value, 3> trim_args{ input_clip, avs_new_value_int(previous_n_x.first - 1), avs_new_value_int(-1) };
             AVS_Value trim_clip{ g_avs_api->avs_invoke(env, "Trim", avs_new_value_array(trim_args.data(), 3), 0) }; // Trim(clip, N-1, -1).
             if (avs_is_error(trim_clip))
             {
