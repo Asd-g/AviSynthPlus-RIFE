@@ -993,7 +993,7 @@ static AVS_Value AVSC_CC Create_RIFE_ReplaceFrames(AVS_ScriptEnvironment* env, A
 
     const auto set_error{ [&](std::string_view s)
     {
-        std::string msg{ std::format("RIFE_ReplaceFrames: {}.", s) };
+        std::string msg{ std::format("RIFE_RF: {}.", s) };
 
         return avs_new_value_error(g_avs_api->avs_save_string(env, msg.c_str(), msg.size()));
     } };
@@ -1030,20 +1030,20 @@ static AVS_Value AVSC_CC Create_RIFE_ReplaceFrames(AVS_ScriptEnvironment* env, A
             }
             previous_n_x = std::make_pair(n_parameter, x_parameter);
 
-            std::array<AVS_Value, 4> trim_args{ input_clip, avs_new_value_int(previous_n_x.first - 1), avs_new_value_int(-1), avs_new_value_string("false") };
+            std::array<AVS_Value, 4> trim_args{ input_clip, avs_new_value_int(previous_n_x.first - 1), avs_new_value_int(-1), avs_new_value_bool(0) };
             AVS_Value trim_clip{ g_avs_api->avs_invoke(env, "Trim", avs_new_value_array(trim_args.data(), 4), 0) }; // Trim(clip, N-1, -1).
             if (avs_is_error(trim_clip))
             {
                 g_avs_api->avs_release_value(input_clip);
-                return set_error(avs_as_error(trim_clip));
+                return set_error("error: Trim(clip, N-1, -1)");
             }
-            trim_args = { input_clip, avs_new_value_int(n_parameter + x_parameter), avs_new_value_int(-1), avs_new_value_string("false") };
+            trim_args = { input_clip, avs_new_value_int(n_parameter + x_parameter), avs_new_value_int(-1), avs_new_value_bool(0) };
             AVS_Value trim_clip1{ g_avs_api->avs_invoke(env, "Trim", avs_new_value_array(trim_args.data(), 4), 0) }; // Trim(clip, N+X, -1).
             if (avs_is_error(trim_clip1))
             {
                 g_avs_api->avs_release_value(trim_clip);
                 g_avs_api->avs_release_value(input_clip);
-                return set_error(avs_as_error(trim_clip1));
+                return set_error("error: Trim(clip, N+X, -1)");
             }
             std::array<AVS_Value, 2> spliced_args{ trim_clip, trim_clip1 };
             // Trim(clip, N-1, -1) + Trim(clip, N+X, -1).
@@ -1053,7 +1053,7 @@ static AVS_Value AVSC_CC Create_RIFE_ReplaceFrames(AVS_ScriptEnvironment* env, A
                 g_avs_api->avs_release_value(trim_clip1);
                 g_avs_api->avs_release_value(trim_clip);
                 g_avs_api->avs_release_value(input_clip);
-                return set_error(avs_as_error(spliced_clip));
+                return set_error("error: Trim(clip, N-1, -1) + Trim(clip, N+X, -1)");
             }
 
             std::array<AVS_Value, 5> rife_args{ spliced_clip, avs_new_value_int(1), avs_new_value_int(model), avs_new_value_int(x_parameter + 1),
@@ -1067,7 +1067,7 @@ static AVS_Value AVSC_CC Create_RIFE_ReplaceFrames(AVS_ScriptEnvironment* env, A
                 g_avs_api->avs_release_value(trim_clip1);
                 g_avs_api->avs_release_value(trim_clip);
                 g_avs_api->avs_release_value(input_clip);
-                return set_error(avs_as_error(rife_clip));
+                return set_error("error: RIFE(gpu_thread=1, model=model, factor_num=X+1, factor_den=1)");
             }
 
             std::array<AVS_Value, 3> assumefps_args{ rife_clip, avs_new_value_int(clip_fps_numerator), avs_new_value_int(clip_fps_denominator) };
@@ -1080,10 +1080,10 @@ static AVS_Value AVSC_CC Create_RIFE_ReplaceFrames(AVS_ScriptEnvironment* env, A
                 g_avs_api->avs_release_value(trim_clip1);
                 g_avs_api->avs_release_value(trim_clip);
                 g_avs_api->avs_release_value(input_clip);
-                return set_error(avs_as_error(assumefps_clip));
+                return set_error("AssumeFPS(FrameRateNumerator(clip), FrameRateDenominator(cli))");
             }
 
-            trim_args = { assumefps_clip, avs_new_value_int(1), avs_new_value_int(x_parameter), avs_new_value_string("false") };
+            trim_args = { assumefps_clip, avs_new_value_int(1), avs_new_value_int(x_parameter), avs_new_value_bool(0) };
             // Trim(1, X)
             AVS_Value processed_clip{ g_avs_api->avs_invoke(env, "Trim", avs_new_value_array(trim_args.data(), 4), 0) };
             if (avs_is_error(processed_clip))
@@ -1094,10 +1094,10 @@ static AVS_Value AVSC_CC Create_RIFE_ReplaceFrames(AVS_ScriptEnvironment* env, A
                 g_avs_api->avs_release_value(trim_clip1);
                 g_avs_api->avs_release_value(trim_clip);
                 g_avs_api->avs_release_value(input_clip);
-                return set_error(avs_as_error(processed_clip));
+                return set_error("Trim(1, X)");
             }
 
-            trim_args = { input_clip, avs_new_value_int(0), avs_new_value_int(n_parameter - 1), avs_new_value_string("false") };
+            trim_args = { input_clip, avs_new_value_int(0), avs_new_value_int(n_parameter - 1), avs_new_value_bool(0) };
             AVS_Value trim_clip3{ g_avs_api->avs_invoke(env, "Trim", avs_new_value_array(trim_args.data(), 4), 0) }; // Trim(clip, N, X-1).
             if (avs_is_error(trim_clip3))
             {
@@ -1108,9 +1108,9 @@ static AVS_Value AVSC_CC Create_RIFE_ReplaceFrames(AVS_ScriptEnvironment* env, A
                 g_avs_api->avs_release_value(trim_clip1);
                 g_avs_api->avs_release_value(trim_clip);
                 g_avs_api->avs_release_value(input_clip);
-                return set_error(avs_as_error(trim_clip3));
+                return set_error("Trim(clip, N, X-1)");
             }
-            trim_args = { input_clip, avs_new_value_int(n_parameter + x_parameter), avs_new_value_int(0), avs_new_value_string("false") };
+            trim_args = { input_clip, avs_new_value_int(n_parameter + x_parameter), avs_new_value_int(0), avs_new_value_bool(0) };
             AVS_Value trim_clip4{ g_avs_api->avs_invoke(env, "Trim", avs_new_value_array(trim_args.data(), 4), 0) }; // Trim(clip, N+X, 0).
             if (avs_is_error(trim_clip4))
             {
@@ -1122,7 +1122,7 @@ static AVS_Value AVSC_CC Create_RIFE_ReplaceFrames(AVS_ScriptEnvironment* env, A
                 g_avs_api->avs_release_value(trim_clip1);
                 g_avs_api->avs_release_value(trim_clip);
                 g_avs_api->avs_release_value(input_clip);
-                return set_error(avs_as_error(trim_clip4));
+                return set_error("Trim(clip, N+X, 0)");
             }
             std::array<AVS_Value, 3> spliced_args1{ trim_clip3, processed_clip, trim_clip4 };
             // Trim(clip, 0, N-1) ++ processed_clip ++ Trim(clip, N+X, 0).
@@ -1137,7 +1137,7 @@ static AVS_Value AVSC_CC Create_RIFE_ReplaceFrames(AVS_ScriptEnvironment* env, A
             g_avs_api->avs_release_value(trim_clip);
             g_avs_api->avs_release_value(input_clip);
             if (avs_is_error(output))
-                return set_error(avs_as_error(output));
+                return set_error("Trim(clip, 0, N-1) ++ processed_clip ++ Trim(clip, N+X, 0)");
             else
             {
                 g_avs_api->avs_copy_value(&input_clip, output);
