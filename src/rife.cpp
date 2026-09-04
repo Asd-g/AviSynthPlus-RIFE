@@ -128,6 +128,7 @@ int RIFE::load(const std::string& modeldir)
     opt.use_fp16_storage = true;
     opt.use_fp16_arithmetic = false;
     opt.use_int8_storage = false;
+    opt.use_mapped_model_loading = true;
 
     flownet.opt = opt;
     contextnet.opt = opt;
