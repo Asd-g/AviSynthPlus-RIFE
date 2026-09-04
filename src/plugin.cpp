@@ -622,21 +622,10 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
 
         if (d->skip_clip)
         {
-            if (d->skip_next)
+            for (int i = start_frame; i < end_frame && psnrY < d->skipThreshold; ++i)
             {
-                for (int i = start_frame + 1; i <= end_frame && psnrY < d->skipThreshold; ++i)                
-                {
-                    if (check_external_flag(env, d->skip_clip, d->skip_prop, d->read_skip_flag, i))
-                        psnrY = d->skipThreshold;
-                }
-            }
-            else
-            {
-                for (int i = start_frame; i < end_frame && psnrY < d->skipThreshold; ++i)
-                {
-                    if (check_external_flag(env, d->skip_clip, d->skip_prop, d->read_skip_flag, i))
-                        psnrY = d->skipThreshold;
-                }
+                if (check_external_flag(env, d->skip_clip, d->skip_prop, d->read_skip_flag, i))
+                    psnrY = d->skipThreshold;
             }
         }
         else
