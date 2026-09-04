@@ -1,3 +1,10 @@
+##### 1.4.0:
+    Added parameters `sc_clip`, `sc_prop`, `sc_next`, `skip_clip`, `skip_prop`.
+    Deprecated `sc` and `skip` parameters.
+    ncnn graph: added support for `elempack == 4`.
+    ncnn: added support for directly read from the mapped virtual address.
+    Added `cache_path` parameter.
+
 ##### 1.3.2:
     Fixed `list_gpu`.
 
