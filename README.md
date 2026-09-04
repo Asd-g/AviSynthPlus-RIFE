@@ -20,7 +20,7 @@ This is [a port of the VapourSynth plugin RIFE](https://github.com/HomeOfVapourS
 RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num", int "fps_den", string "model_path", int "gpu_id",
  int "gpu_thread", bool "tta", bool "uhd", bool "sc", bool "sc1", float "sc_threshold", bool "skip", float "skip_threshold",
   bool "list_gpu", bool "denoise", int "denoise_tr", int "matrix_in", bool "full_range", bool "cache",
-  clip "sc_clip", string "sc_prop", bool "sc_next", clip "skip_clip", string "skip_prop")
+  clip "sc_clip", string "sc_prop", bool "sc_next", clip "skip_clip", string "skip_prop", string "cache_path")
 ```
 
 ### Parameters:
@@ -269,6 +269,14 @@ source
 skip_clip = VMAF2(last, DuplicateFrame(Trim(1, 0), FrameCount() - 1), feature=0)
 RIFE(gpu_thread=1, matrix_in=1, skip_clip=skip_clip, skip_prop="psnr_y")
 ```
+
+##### ***`cache_path`***
+File path to save and load the Vulkan pipeline cache.<br>
+When provided, compiled Vulkan shaders and driver pipeline state objects are cached to this file,
+ reducing the cold-start latency on subsequent runs.<br>
+The target directory must be writable. The cache file is strictly tied to the specific GPU, driver, and ncnn version used to create it.<br>
+If omitted or empty, Vulkan pipeline caching is disabled.<br>
+Default: Not specified.
 
 ### Building:
 

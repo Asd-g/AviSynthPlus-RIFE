@@ -845,7 +845,8 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
         Sc_prop,
         Sc_next,
         Skip_clip,
-        Skip_prop
+        Skip_prop,
+        Cache_path
     };
 
     auto d{ std::make_unique<RIFEData>() };
@@ -1075,6 +1076,8 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
         const int comp_size{ g_avs_api->avs_component_size(&vi) };
         const int bits{ g_avs_api->avs_bits_per_component(&vi) };
 
+        const char* cache_path{ avs_helpers::get_opt_arg<const char*>(env, args, Cache_path).value_or(nullptr) };
+
         if (const bool use_cache{ avs_helpers::get_opt_arg<bool>(env, args, Cache).value_or(true) })
         {
             ModelKey key{ modelPath, gpuId, tta, uhd, rife_v2, rife_v4, padding, is_yuv, chroma_subsampling, m_in, comp_size,
@@ -1086,7 +1089,7 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
                 if (!d->rife) {
                     d->rife = std::make_shared<RIFE>(gpuId, tta, uhd, 1, rife_v2, rife_v4, padding, is_yuv, chroma_subsampling, m_in,
                         comp_size, full_range, bits);
-                    d->rife->load(modelPath);
+                    d->rife->load(modelPath, cache_path);
                     weak_ref = d->rife;
                 }
             }
@@ -1095,7 +1098,7 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
         {
             d->rife = std::make_shared<RIFE>(gpuId, tta, uhd, 1, rife_v2, rife_v4, padding, is_yuv, chroma_subsampling, m_in,
                 comp_size, full_range, bits);
-            d->rife->load(modelPath);
+            d->rife->load(modelPath, cache_path);
         }
 
         if (sceneChange)
@@ -1210,7 +1213,8 @@ const char* init_plugin (AVS_ScriptEnvironment* AVS_RESTRICT env)
         "[sc_prop]s"
         "[sc_next]b"
         "[skip_clip]c"
-        "[skip_prop]s",
+        "[skip_prop]s"
+        "[cache_path]s",
         Create_RIFE, 0);
     return "Real-Time Intermediate Flow Estimation for Video Frame Interpolation";
 }

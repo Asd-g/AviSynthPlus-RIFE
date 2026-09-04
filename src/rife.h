@@ -2,10 +2,12 @@
 
 // rife implemented with ncnn library
 
+#include <memory>
 #include <string>
 
 // ncnn
 #include "net.h"
+#include "pipelinecache.h"
 
 class RIFE
 {
@@ -14,7 +16,7 @@ public:
         int chroma_subsampling, int matrix_in, int bytes_per_comp, bool full_range, int bit_depth);
     ~RIFE();
 
-    int load(const std::string& modeldir);
+    int load(const std::string& modeldir, const char* cache_path = nullptr);
 
     int process(const uint8_t* const src0_p[3], const uint8_t* const src1_p[3], float* dstR, float* dstG, float* dstB, const int w,
         const int h, const ptrdiff_t stride0[3], const ptrdiff_t stride1[3], const ptrdiff_t dst_stride, const float timestep) const;
@@ -34,6 +36,7 @@ public:
 
 private:
     ncnn::VulkanDevice* vkdev;
+    std::unique_ptr<ncnn::PipelineCache> pipeline_cache;
     ncnn::Net flownet;
     ncnn::Net contextnet;
     ncnn::Net fusionnet;

@@ -119,7 +119,7 @@ static void load_param_model(ncnn::Net& net, const std::string& modeldir, const 
 #endif // _WIN32
 }
 
-int RIFE::load(const std::string& modeldir)
+int RIFE::load(const std::string& modeldir, const char* cache_path)
 {
     ncnn::Option opt;
     opt.num_threads = num_threads;
@@ -137,6 +137,16 @@ int RIFE::load(const std::string& modeldir)
     flownet.set_vulkan_device(vkdev);
     contextnet.set_vulkan_device(vkdev);
     fusionnet.set_vulkan_device(vkdev);
+
+    if (cache_path && cache_path[0] != '\0')
+    {
+        pipeline_cache = std::make_unique<ncnn::PipelineCache>(vkdev);
+        pipeline_cache->load_cache(cache_path);
+
+        flownet.opt.pipeline_cache = pipeline_cache.get();
+        contextnet.opt.pipeline_cache = pipeline_cache.get();
+        fusionnet.opt.pipeline_cache = pipeline_cache.get();
+    }
 
     flownet.register_custom_layer("rife.Warp", Warp_layer_creator);
     contextnet.register_custom_layer("rife.Warp", Warp_layer_creator);
@@ -342,6 +352,9 @@ int RIFE::load(const std::string& modeldir)
         rife_v4_timestep->set_optimal_local_size_xyz(8, 8, 1);
         rife_v4_timestep->create(spirv.data(), spirv.size() * 4, specializations);
     }
+
+    if (pipeline_cache)
+        pipeline_cache->save_cache(cache_path);
 
     return 0;
 }
