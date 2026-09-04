@@ -19,17 +19,18 @@ This is [a port of the VapourSynth plugin RIFE](https://github.com/HomeOfVapourS
 ```
 RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num", int "fps_den", string "model_path", int "gpu_id",
  int "gpu_thread", bool "tta", bool "uhd", bool "sc", bool "sc1", float "sc_threshold", bool "skip", float "skip_threshold",
-  bool "list_gpu", bool "denoise", int "denoise_tr", int "matrixc_in", bool "full_range", bool "cache")
+  bool "list_gpu", bool "denoise", int "denoise_tr", int "matrix_in", bool "full_range", bool "cache",
+  clip "sc_clip", string "sc_prop", bool "sc_next", clip "skip_clip", string "skip_prop")
 ```
 
 ### Parameters:
 
-- input<br>
+##### ***`input`***
     A clip to process.<br>
     It must be in planar format.<br>
     The output format is `RGBPS`.
 
-- model<br>
+##### ***`model`***
     Model to use.<br>
     `models` must be located in the same folder as RIFE.dll.<br>
     Some of the models have two versions: speed oriented (ensemble=False / fast=True) and quality oriented (ensemble=True / fast=False).<br>
@@ -109,81 +110,85 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
     73: rife-v4.26-large (ensembleFalse)<br>
     Default: 5.
 
-- factor_num, factor_den<br>
+##### ***`factor_num, factor_den`***
     Factor of target frame rate.<br>
     For example `factor_num=5, factor_den=2` will multiply input clip FPS by 2.5.<br>
     Only rife-v4 model supports custom frame rate.<br>
     Default: 2, 1.
 
-- fps_num, fps_den<br>
+##### ***`fps_num, fps_den`***
     Target frame rate.<br>
     Only rife-v4 model supports custom frame rate.<br>
     Supersedes `factor_num`/`factor_den` parameter if specified.<br>
     Default: Not specified.
 
-- model_path<br>
+##### ***`model_path`***
     RIFE model path.<br>
     Supersedes `model` parameter if specified.<br>
     Default: Not specified.
 
-- gpu_id<br>
+##### ***`gpu_id`***
     GPU device to use.<br>
     By default the default device is selected.
 
-- gpu_thread<br>
+##### ***`gpu_thread`***
     Thread count for interpolation.<br>
     Using larger values may increase GPU usage and consume more GPU memory.<br>
     If you find that your GPU is hungry, try increasing thread count to achieve faster processing.<br>
     Must be between 1 and the max compute queue count supported by the GPU.<br>
     Default: 2.
 
-- tta<br>
+##### ***`tta`***
     Enable TTA(Test-Time Augmentation) mode.<br>
     Default: False.
 
-- uhd<br>
+##### ***`uhd`***
     Enable UHD mode.<br>
     Default: False.
-- sc<br>
-    Avoid interpolating frames over scene changes.<br>
+##### ***`sc` (deprecated, use sc_clip instead)***
+    Avoid interpolating frames over scene changes using internal SAD-based detection..<br>
     This cannot be true when `sc1=true`.<br>
+    Ignored if `sc_clip` is provided.<br>
     Default: False.
 
-- sc1<br>
-    Blend frames (average) frames over scene changes.<br>
+##### ***`sc1`***
+    Blend frames (average) frames over scene changes using internal SAD-based detection.<br>
     This cannot be true when `sc=true`.<br>
+    Ignored if `sc_clip` is provided.<br>
     Default: False.
 
-- sc_threshold<br>
-    Threshold to determine whether the current frame and the next one are end/beginning of scene.<br>
+##### ***`sc_threshold`***
+    Threshold to determine whether the current frame and the next one are end/beginning of scene using internal detection.<br>
     Must be between 0.0..1.0.<br>
+    Ignored if `sc_clip` is provided.<br>
     Default: 0.12.
 
-- skip<br>
-    Skip interpolating static frames.<br>
+##### ***`skip` (deprecated, use skip_clip instead)***
+    Skip interpolating static frames using internal VMAF-based detection.<br>
     Requires [VMAF](https://github.com/Asd-g/AviSynth-VMAF) plugin.<br>
+    Ignored if `skip_clip` is provided.<br>
     Default: False.
 
-- skip_threshold<br>
-    PSNR threshold to determine whether the current frame and the next one are static.<br>
+##### ***`skip_threshold`***
+    PSNR threshold to determine whether the current frame and the next one are static using internal detection.<br>
     Must be between 0.0..60.0.<br>
     Default: 60.0.
 
-- list_gpu<br>
+##### ***`list_gpu`***
     Simply print a list of available GPU devices on the frame and does no interpolation.<br>
     Default: False.
 
-- denoise<br>
+##### ***`denoise`***
     Whether to return only the interpolated frames.<br>
     Default: False.
 
-- denoise_tr<br>
+##### ***`denoise_tr`***
     Frame radius.<br>
     For example, `denoise_tr=1` means frames `n-1` and `n+1` are used.<br>
     Must be greater than 0.<br>
     Default: 1.
 
-- matrix_in<br>
+##### ***`matrix_in`***
     Matrix for YUV->RGB conversion.<br>
     Mandatory for YUV input.<br>
     0: 601<br>
@@ -191,28 +196,78 @@ RIFE(clip input, int "model", int "factor_num", int "factor_den", int "fps_num",
     2: 2020<br>
     Default: not specified.
 
-- full_range<br>
+##### ***`full_range`***
     Input pixel_range.<br>
     Default: True for 32-bit or RGB input.
 
-- cache<br>
+##### ***`cache`***
     Whether to share the RIFE model instance between multiple filter calls.<br>
     When enabled, instances using the same model, GPU ID, and video format (bit depth, color space, etc.) will share the same memory,
     reducing VRAM usage.<br>
     If set to False, a private instance of the model will be loaded into VRAM for that specific call.<br>
     Default: True.
 
-- denoise_bf<br>
+##### ***`denoise_bf`***
     Backward frame radius for denoise=true.<br>
     Allows asymmetric reference frame selection.<br>
     Must be greater than 0.<br>
     Default: Value of denoise_tr.
 
-- denoise_ff<br>
+##### ***`denoise_ff`***
     Forward frame radius for denoise=true.<br>
     Allows asymmetric reference frame selection.<br>
     Must be greater than 0.<br>
     Default: Value of denoise_tr.
+
+##### ***`sc_clip`***
+    External clip for scene change detection.<br>
+    If provided, it supersedes the internal SAD-based detection (`sc`/`sc1`).<br>
+    Must have the exact same number of frames as the input clip.<br>
+    Can be a mask clip (where a pixel value > 0 indicates a scene change) or a clip carrying frame properties.<br>
+    Default: Not specified.
+
+##### ***`sc_prop`***
+    Name of the integer frame property in `sc_clip` to read for scene change flags (value > 0).<br>
+    If specified, `sc_clip` is evaluated in property mode.<br>
+    If omitted, `sc_clip` is evaluated in mask mode (reading the first pixel of the default plane).<br>
+    Default: Not specified.
+
+##### ***`sc_next`***
+    Sets whether scene-change markers in `sc_clip` refer to the frame before or after the cut.<br>
+    If True, a flag on frame `N` means the scene change occurs *before* frame `N` (between `N-1` and `N`).<br>
+    If False, a flag on frame `N` means the scene change occurs *after* frame `N` (between `N` and `N+1`).<br>
+    Default: True.
+
+    Example replicating the internal scene change detection:
+
+```
+source
+propset("Next", 0)
+props = propSet("Next", 1)
+ConditionalFilter(last, props, last, "YDifferenceFromPrevious()", ">", "20")
+RIFE(gpu_thread=1, matrix_in=1, sc_clip=last, sc_prop="Next")
+```
+
+##### ***`skip_clip`***
+    External clip to detect static frames and skip interpolation.<br>
+    If provided, it supersedes the internal VMAF-based detection (`skip`).<br>
+    Must have the exact same number of frames as the input clip.<br>
+    Can be a mask clip (where a pixel value > 0 indicates a static frame) or a clip carrying frame properties.<br>
+    Default: Not specified.
+
+##### ***`skip_prop`***
+    Name of the integer frame property in `skip_clip` to read for skip flags (value > 0).<br>
+    If specified, `skip_clip` is evaluated in property mode.<br>
+    If omitted, `skip_clip` is evaluated in mask mode (reading the first pixel of the default plane).<br>
+    Default: Not specified.
+
+    Example replicating the internal static frame detection:
+
+```
+source
+skip_clip = VMAF2(last, DuplicateFrame(Trim(1, 0), FrameCount() - 1), feature=0)
+RIFE(gpu_thread=1, matrix_in=1, skip_clip=skip_clip, skip_prop="psnr_y")
+```
 
 ### Building:
 
