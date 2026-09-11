@@ -4,7 +4,9 @@
 
 #include <array>
 #include <atomic>
+#include <climits>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -19,8 +21,12 @@
 #include "avs_c_api_loader.hpp"
 #include "rife.h"
 
+#ifndef AVS_RESTRICT
+#define AVS_RESTRICT
+#endif
+
 #if defined(__linux__) || defined(__APPLE__)
-#include <mach-o/dyld.h>
+#include <dlfcn.h>
 #endif
 
 static std::atomic<int> numGPUInstances{ 0 };
