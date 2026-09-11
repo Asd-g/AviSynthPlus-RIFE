@@ -3,6 +3,7 @@
 #include "rife.h"
 
 #include <algorithm>
+#include <cstring>
 #include <vector>
 
 #include "benchmark.h"
