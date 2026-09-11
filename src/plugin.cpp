@@ -434,6 +434,15 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
         return nullptr;
             } };
 
+    auto& sc_prop{ d->sc_prop };
+    auto& skip_prop{ d->skip_prop };
+
+    AVS_Map* dst_props{ g_avs_api->avs_get_frame_props_rw(env, dst.get()) };
+    g_avs_api->avs_prop_set_int(env, dst_props, "_Matrix", 0, 0);
+    g_avs_api->avs_prop_set_int(env, dst_props, "_ColorRange", 0, 0);
+    g_avs_api->avs_prop_set_int(env, dst_props, "_SceneChangeNext", 0, 0);
+    g_avs_api->avs_prop_set_int(env, dst_props, "RIFE_static", 0, 0);
+
     if constexpr (!denoise)
     {
         if (remainder != 0 && n < vi.num_frames - d->factor)
@@ -443,7 +452,7 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
 
             if (d->sc_clip)
             {
-                sceneChange = check_external_flag(env, d->sc_clip, d->sc_prop, d->read_sc_flag, (d->sc_next) ? (frameNum + 1) : frameNum);
+                sceneChange = check_external_flag(env, d->sc_clip, sc_prop, d->read_sc_flag, (!d->sc_next) ? (frameNum + 1) : frameNum);
             }
             else
             {
@@ -476,7 +485,7 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
 
             if (d->skip_clip)
             {
-                if (check_external_flag(env, d->skip_clip, d->skip_prop, d->read_skip_flag, frameNum))
+                if (check_external_flag(env, d->skip_clip, skip_prop, d->read_skip_flag, frameNum))
                     psnrY = d->skipThreshold;
             }
             else
@@ -540,7 +549,14 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
                     avg_frame(src0.get(), src1.get(), dst.get(), env, d);
                 }
                 else
+                {
                     copy_frame(src0.get(), dst.get(), d);
+
+                    if (sceneChange)
+                        g_avs_api->avs_prop_set_int(env, dst_props, "_SceneChangeNext", 1, 0);
+                    else
+                        g_avs_api->avs_prop_set_int(env, dst_props, "RIFE_static", 1, 0);
+                }
             }
             else
             {
@@ -564,7 +580,7 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
         if (d->sc_clip)
         {
             for (int i = start_frame; i < end_frame && !sceneChange; ++i)
-                sceneChange = check_external_flag(env, d->sc_clip, d->sc_prop, d->read_sc_flag, i);
+                sceneChange = check_external_flag(env, d->sc_clip, sc_prop, d->read_sc_flag, i);
         }
         else
         {
@@ -624,7 +640,7 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
         {
             for (int i = start_frame; i < end_frame && psnrY < d->skipThreshold; ++i)
             {
-                if (check_external_flag(env, d->skip_clip, d->skip_prop, d->read_skip_flag, i))
+                if (check_external_flag(env, d->skip_clip, skip_prop, d->read_skip_flag, i))
                     psnrY = d->skipThreshold;
             }
         }
@@ -771,7 +787,14 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
                 avg_frame(src0.get(), src1.get(), dst.get(), env, d);
             }
             else
+            {
                 copy_frame(g_avs_api->avs_get_frame(child, frameNum), dst.get(), d);
+
+                if (sceneChange)
+                    g_avs_api->avs_prop_set_int(env, dst_props, "_SceneChangeNext", 1, 0);
+                else
+                    g_avs_api->avs_prop_set_int(env, dst_props, "RIFE_static", 1, 0);
+            }
         }
         else
         {
@@ -781,16 +804,20 @@ static AVS_VideoFrame* AVSC_CC RIFE_get_frame(AVS_FilterInfo* fi, int n)
         }
     }
 
-    auto props{ g_avs_api->avs_get_frame_props_rw(env, dst.get()) };
     int errNum, errDen;
-    unsigned durationNum{ static_cast<unsigned>(g_avs_api->avs_prop_get_int(env, props, "_DurationNum", 0, &errNum)) };
-    unsigned durationDen{ static_cast<unsigned>(g_avs_api->avs_prop_get_int(env, props, "_DurationDen", 0, &errDen)) };
+    unsigned durationNum{ static_cast<unsigned>(g_avs_api->avs_prop_get_int(env, dst_props, "_DurationNum", 0, &errNum)) };
+    unsigned durationDen{ static_cast<unsigned>(g_avs_api->avs_prop_get_int(env, dst_props, "_DurationDen", 0, &errDen)) };
     if (!errNum && !errDen)
     {
         muldivRational(&durationNum, &durationDen, d->factorDen, d->factorNum);
-        g_avs_api->avs_prop_set_int(env, props, "_DurationNum", durationNum, 0);
-        g_avs_api->avs_prop_set_int(env, props, "_DurationDen", durationDen, 0);
+        g_avs_api->avs_prop_set_int(env, dst_props, "_DurationNum", durationNum, 0);
+        g_avs_api->avs_prop_set_int(env, dst_props, "_DurationDen", durationDen, 0);
     }
+
+    if (sc_prop)
+        g_avs_api->avs_prop_delete_key(env, dst_props, sc_prop);
+    if (skip_prop)
+        g_avs_api->avs_prop_delete_key(env, dst_props, skip_prop);
 
     return dst.release();
 }
@@ -931,7 +958,7 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
 
         avs_helpers::avs_clip_ptr sc_clip{ avs_helpers::get_opt_arg<avs_helpers::avs_clip_ptr>(env, args, Sc_clip).value_or(nullptr) };
         const char* sc_prop{ avs_helpers::get_opt_arg<const char*>(env, args, Sc_prop).value_or(nullptr) };
-        d->sc_next = avs_helpers::get_opt_arg<bool>(env, args, Sc_next).value_or(1);
+        d->sc_next = avs_helpers::get_opt_arg<bool>(env, args, Sc_next).value_or(false);
 
         avs_helpers::avs_clip_ptr skip_clip{ avs_helpers::get_opt_arg<avs_helpers::avs_clip_ptr>(env, args, Skip_clip).value_or(nullptr) };
         const char* skip_prop{ avs_helpers::get_opt_arg<const char*>(env, args, Skip_prop).value_or(nullptr) };

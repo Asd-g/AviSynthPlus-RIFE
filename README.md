@@ -235,9 +235,9 @@ Default: Not specified.
 
 ##### ***`sc_next`***
 Sets whether scene-change markers in `sc_clip` refer to the frame before or after the cut.<br>
-If True, a flag on frame `N` means the scene change occurs *before* frame `N` (between `N-1` and `N`).<br>
-If False, a flag on frame `N` means the scene change occurs *after* frame `N` (between `N` and `N+1`).<br>
-Default: True.
+If False, a flag on frame `N` means the scene change occurs *before* frame `N` (between `N-1` and `N`).<br>
+If True, a flag on frame `N` means the scene change occurs *after* frame `N` (between `N` and `N+1`).<br>
+Default: False.
 
 Example replicating the internal scene change detection:
 
@@ -277,6 +277,20 @@ When provided, compiled Vulkan shaders and driver pipeline state objects are cac
 The target directory must be writable. The cache file is strictly tied to the specific GPU, driver, and ncnn version used to create it.<br>
 If omitted or empty, Vulkan pipeline caching is disabled.<br>
 Default: Not specified.
+
+### Frame Properties:
+
+RIFE sets the following frame properties on its output clip:
+
+##### ***`_SceneChangeNext`***
+Standard frame property indicating scene change boundaries as evaluated by RIFE.<br>
+1: The frame is the final frame before a scene boundary.<br>
+0: Regular frame.<br>
+
+##### ***`RIFE_static`***
+Indicates whether an in-between frame was bypassed and duplicated due to static frame detection (`skip` / `skip_clip`).<br>
+1: Intermediate frame copied from the previous frame because motion was below the static threshold.<br>
+0: Regular frame (source passthrough, AI-interpolated frame, or scene change fallback frame).
 
 ### Building:
 
