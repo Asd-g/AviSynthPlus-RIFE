@@ -65,6 +65,10 @@ target_link_libraries(RIFE PRIVATE
     ncnn
 )
 
+if(UNIX AND NOT APPLE)
+    target_link_options(RIFE PRIVATE "LINKER:-z,nodelete")
+endif()
+
 target_compile_features(RIFE PRIVATE cxx_std_20)
 
 if (NOT CMAKE_GENERATOR MATCHES "Visual Studio")

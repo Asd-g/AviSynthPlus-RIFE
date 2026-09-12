@@ -86,6 +86,20 @@ inline std::filesystem::path get_current_module_path()
 #endif
 }
 
+#ifdef _WIN32
+static void pin_current_module()
+{
+    static std::once_flag once;
+    std::call_once(once, []() {
+        HMODULE hMod = nullptr;
+        GetModuleHandleExW(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
+            reinterpret_cast<LPCWSTR>(&pin_current_module),
+            &hMod);
+        });
+}
+#endif
+
 template <typename Key, typename Value1, typename Value2, std::size_t Size>
 struct Map
 {
@@ -887,6 +901,10 @@ static AVS_Value AVSC_CC Create_RIFE(AVS_ScriptEnvironment* env, AVS_Value args,
         Skip_prop,
         Cache_path
     };
+
+#ifdef _WIN32
+    pin_current_module();
+#endif
 
     auto d{ std::make_unique<RIFEData>() };
     auto& fi{ d->fi };
