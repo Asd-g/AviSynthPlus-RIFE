@@ -22,7 +22,13 @@
 #include "rife.h"
 
 #ifndef AVS_RESTRICT
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L /* Available in C99 */
+#define AVS_RESTRICT restrict
+#elif defined(__cplusplus) || defined(_MSC_VER) /* Almost all relevant C++ compilers support it so just assume it works */
+#define AVS_RESTRICT __restrict
+#else /* Not supported */
 #define AVS_RESTRICT
+#endif
 #endif
 
 #if defined(__linux__) || defined(__APPLE__)
