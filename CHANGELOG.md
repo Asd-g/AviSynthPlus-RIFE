@@ -1,3 +1,11 @@
+##### 1.4.1:
+    Fixed YUV 10-16 bit limited=>full range conversation.
+    Changed `sc_next` usage.
+    Fixed `_Matrix` frame property when YUV input.
+    Set frame properties `_SceneChangeNext` and `RIFE_static`.
+    Fixed Linux building. (mysteryx93)
+    Fixed FreeLibrary / dlclose deadlock.
+
 ##### 1.4.0:
     Added parameters `sc_clip`, `sc_prop`, `sc_next`, `skip_clip`, `skip_prop`.
     Deprecated `sc` and `skip` parameters.
