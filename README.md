@@ -239,7 +239,7 @@ If False, a flag on frame `N` means the scene change occurs *before* frame `N` (
 If True, a flag on frame `N` means the scene change occurs *after* frame `N` (between `N` and `N+1`).<br>
 Default: False.
 
-Example replicating the internal scene change detection:
+Example replicating `sc=true`:
 
 ```
 source
@@ -247,6 +247,54 @@ propset("Next", 0)
 props = propSet("Next", 1)
 ConditionalFilter(last, props, last, "YDifferenceFromPrevious()", ">", "20")
 RIFE(gpu_thread=1, matrix_in=1, sc_clip=last, sc_prop="Next")
+```
+
+Example replicating `sc1=true`:
+
+```
+src
+
+src = src.propset("Next", 0)
+props = src.propSet("Next", 1)
+tagged_30 = ConditionalFilter(src, props, src, "YDifferenceFromPrevious()", ">", "20")
+
+rife_60 = RIFE(tagged_30, matrix_in=1, sc_clip=tagged_30, sc_prop="Next")
+
+shifted_f = Trim(DuplicateFrame(src, 0), 0, FrameCount(src) - 1)
+average = Average(src, 0.5, shifted_f, 0.5)
+
+average_30_aligned = DuplicateFrame(Trim(average, 1, 0), FrameCount(average) - 2)
+average_60 = Interleave(src, average_30_aligned)
+
+final_60 = ConditionalFilter(rife_60, z_ConvertFormat(average_60, pixel_type="rgbps"), rife_60,  """propGetInt(rife_60, "_SceneChangeNext") == 1""", "==", "true")
+
+return final_60
+```
+
+Example using MVTools for extrapolation:
+
+```
+src =
+
+src = src.propset("Next", 0)
+props = src.propSet("Next", 1)
+tagged_30 = ConditionalFilter(src, props, src, "YDifferenceFromPrevious()", ">", "20")
+
+rife_60 = RIFE(tagged_30, matrix_in=1, sc_clip=tagged_30, sc_prop="Next")
+
+super = MSuper(tagged_30, pel=2, sharp=2)
+fv_coarse = MAnalyse(super, isb=false, delta=1, blksize=16, overlap=8, search=3, truemotion=true)
+fv_refined = MRecalculate(super, fv_coarse, blksize=8, overlap=4, thSAD=200, search=3)
+
+shifted_fv = DuplicateFrame(fv_refined, 0)
+extrap_30 = MFlow(tagged_30, super, shifted_fv, time=50.0)
+
+extrap_30_aligned = DuplicateFrame(Trim(extrap_30, 1, 0), FrameCount(extrap_30) - 2)
+extrap_60 = Interleave(tagged_30, extrap_30_aligned)
+
+final_60 = ConditionalFilter(rife_60, z_ConvertFormat(extrap_60, pixel_type="rgbps"), rife_60,  """propGetInt(rife_60, "_SceneChangeNext") == 1""", "==", "true")
+
+return final_60
 ```
 
 ##### ***`skip_clip`***
