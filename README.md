@@ -12,7 +12,13 @@ This is [a port of the VapourSynth plugin RIFE](https://github.com/HomeOfVapourS
 - AviSynth+ r3688 or later ([1](https://github.com/AviSynth/AviSynthPlus/releases) / [2](https://forum.doom9.org/showthread.php?t=181351) /
  [3](https://gitlab.com/uvz/AviSynthPlus-Builds))
 
-- Microsoft VisualC++ Redistributable Package 2022 (can be downloaded from [here](https://github.com/abbodi1406/vcredist/releases))
+- **Windows:** Microsoft VisualC++ Redistributable Package 2022 (can be downloaded from [here](https://github.com/abbodi1406/vcredist/releases))
+
+### Installation / Packages:
+
+- **Windows:** Download pre-compiled binaries from [Releases](https://github.com/Asd-g/AviSynthPlus-RIFE/releases).
+- **Arch Linux / Debian:** Pre-built packages and distribution builds are maintained at [mysteryx93/AviSynth-Plugins-AUR]
+(https://github.com/mysteryx93/AviSynth-Plugins-AUR/releases).
 
 ### Usage:
 
