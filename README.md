@@ -17,8 +17,7 @@ This is [a port of the VapourSynth plugin RIFE](https://github.com/HomeOfVapourS
 ### Installation / Packages:
 
 - **Windows:** Download pre-compiled binaries from [Releases](https://github.com/Asd-g/AviSynthPlus-RIFE/releases).
-- **Arch Linux / Debian:** Pre-built packages and distribution builds are maintained at [mysteryx93/AviSynth-Plugins-AUR]
-(https://github.com/mysteryx93/AviSynth-Plugins-AUR/releases).
+- **Arch Linux / Debian:** Pre-built packages and distribution builds are maintained at [mysteryx93/AviSynth-Plugins-AUR](https://github.com/mysteryx93/AviSynth-Plugins-AUR/releases).
 
 ### Usage:
 
